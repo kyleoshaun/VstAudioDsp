@@ -107,6 +107,20 @@ tresult PLUGIN_API FilterDemoProcessor::setActive (TBool state)
 }
 
 //-----------------------------------------------------------------------------
+template <typename Sample>
+tresult FilterDemoProcessor::processAudio(Sample** in, Sample** out, int32 sampleFramesSize, int32 numChannels)
+{
+	//bypass always (Disable effect)
+	for (int i = 0; i < numChannels; i++)
+	{
+		memcpy(out[i], in[i], sampleFramesSize);
+	}
+
+	return kResultOk;
+}
+
+
+//-----------------------------------------------------------------------------
 tresult PLUGIN_API FilterDemoProcessor::process (Vst::ProcessData& data)
 {
 	//--- Read inputs parameter changes-----------
@@ -161,11 +175,13 @@ tresult PLUGIN_API FilterDemoProcessor::process (Vst::ProcessData& data)
 		void** out = getChannelBuffersPointer(processSetup, data.outputs[0]);
 		uint32 sampleFramesSize = getSampleFramesSizeInBytes(processSetup, data.numSamples);
 
-		//bypass always (Disable effect)
-		int32 noOfChannels = data.inputs[0].numChannels;
-		for (int i = 0; i < noOfChannels; i++)
+		if (Vst::kSample32 == processSetup.symbolicSampleSize)
 		{
-			memcpy(out[i], in[i], sampleFramesSize);
+			processAudio<Vst::Sample32>((Vst::Sample32**)in, (Vst::Sample32**)out, sampleFramesSize, data.inputs[0].numChannels);
+		}
+		else
+		{
+			processAudio<Vst::Sample64>((Vst::Sample64**)in, (Vst::Sample64**)out, sampleFramesSize, data.inputs[0].numChannels);
 		}
 	}
 	return kResultOk;
