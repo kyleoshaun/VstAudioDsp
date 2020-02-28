@@ -44,7 +44,7 @@ enum FilterDemoParams : Vst::ParamID
 {
 	kBypassId = 100,
 
-	kParamVolId = 102,
+	kGainId = 102,
 	kParamOnId = 1000
 };
 

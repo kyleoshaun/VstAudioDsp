@@ -66,9 +66,9 @@ public:
 
 protected:
 	template <typename Sample>
-	tresult processAudio(Sample** in, Sample** out, int32 sampleFramesSize, int32 numChannels);
+	tresult processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels, float gain);
 
-	Vst::ParamValue mParam1 = 0;
+	Vst::ParamValue gain = 0;
 	int16 mParam2 = 0;
 	bool mBypass = false;
 };

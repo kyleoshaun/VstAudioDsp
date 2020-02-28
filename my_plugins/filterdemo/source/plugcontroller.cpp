@@ -54,8 +54,8 @@ tresult PLUGIN_API FilterDemoController::initialize (FUnknown* context)
 		                         Vst::ParameterInfo::kCanAutomate | Vst::ParameterInfo::kIsBypass,
 		                         FilterDemoParams::kBypassId);
 
-		parameters.addParameter (STR16 ("Parameter 1"), STR16 ("dB"), 0, .5,
-		                         Vst::ParameterInfo::kCanAutomate, FilterDemoParams::kParamVolId, 0,
+		parameters.addParameter (STR16 ("Gain"), STR16 ("V/V"), 0, .5,
+		                         Vst::ParameterInfo::kCanAutomate, FilterDemoParams::kGainId, 0,
 		                         STR16 ("Param1"));
 		parameters.addParameter (STR16 ("Parameter 2"), STR16 ("On/Off"), 1, 1.,
 		                         Vst::ParameterInfo::kCanAutomate, FilterDemoParams::kParamOnId, 0,
@@ -77,7 +77,7 @@ tresult PLUGIN_API FilterDemoController::setComponentState (IBStream* state)
 	float savedParam1 = 0.f;
 	if (streamer.readFloat (savedParam1) == false)
 		return kResultFalse;
-	setParamNormalized (FilterDemoParams::kParamVolId, savedParam1);
+	setParamNormalized (FilterDemoParams::kGainId, savedParam1);
 
 	int8 savedParam2 = 0;
 	if (streamer.readInt8 (savedParam2) == false)

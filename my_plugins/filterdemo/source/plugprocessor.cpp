@@ -108,12 +108,18 @@ tresult PLUGIN_API FilterDemoProcessor::setActive (TBool state)
 
 //-----------------------------------------------------------------------------
 template <typename Sample>
-tresult FilterDemoProcessor::processAudio(Sample** in, Sample** out, int32 sampleFramesSize, int32 numChannels)
+tresult FilterDemoProcessor::processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels, float gain)
 {
-	//bypass always (Disable effect)
-	for (int i = 0; i < numChannels; i++)
+	for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
 	{
-		memcpy(out[i], in[i], sampleFramesSize);
+		Sample* channelInputBuffer  = in[channelIdx];
+		Sample* channelOutputBuffer = out[channelIdx];
+
+		for (int sampleIdx = 0; sampleIdx < numSamples; sampleIdx++)
+		{
+			// Apply gain factor
+			channelOutputBuffer[sampleIdx] = gain*channelInputBuffer[sampleIdx];
+		}
 	}
 
 	return kResultOk;
@@ -138,10 +144,10 @@ tresult PLUGIN_API FilterDemoProcessor::process (Vst::ProcessData& data)
 				int32 numPoints = paramQueue->getPointCount ();
 				switch (paramQueue->getParameterId ())
 				{
-					case FilterDemoParams::kParamVolId:
+					case FilterDemoParams::kGainId:
 						if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) ==
 						    kResultTrue)
-							mParam1 = value;
+							gain = value;
 						break;
 					case FilterDemoParams::kParamOnId:
 						if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) ==
@@ -173,15 +179,14 @@ tresult PLUGIN_API FilterDemoProcessor::process (Vst::ProcessData& data)
 		// data.numSamples);
 		void** in = getChannelBuffersPointer(processSetup, data.inputs[0]);
 		void** out = getChannelBuffersPointer(processSetup, data.outputs[0]);
-		uint32 sampleFramesSize = getSampleFramesSizeInBytes(processSetup, data.numSamples);
 
 		if (Vst::kSample32 == processSetup.symbolicSampleSize)
 		{
-			processAudio<Vst::Sample32>((Vst::Sample32**)in, (Vst::Sample32**)out, sampleFramesSize, data.inputs[0].numChannels);
+			processAudio<Vst::Sample32>((Vst::Sample32**)in, (Vst::Sample32**)out, data.numSamples, data.inputs[0].numChannels, (float)gain);
 		}
 		else
 		{
-			processAudio<Vst::Sample64>((Vst::Sample64**)in, (Vst::Sample64**)out, sampleFramesSize, data.inputs[0].numChannels);
+			processAudio<Vst::Sample64>((Vst::Sample64**)in, (Vst::Sample64**)out, data.numSamples, data.inputs[0].numChannels, (float)gain);
 		}
 	}
 	return kResultOk;
@@ -209,7 +214,7 @@ tresult PLUGIN_API FilterDemoProcessor::setState (IBStream* state)
 	if (streamer.readInt32 (savedBypass) == false)
 		return kResultFalse;
 
-	mParam1 = savedParam1;
+	gain = savedParam1;
 	mParam2 = savedParam2 > 0 ? 1 : 0;
 	mBypass = savedBypass > 0;
 
@@ -221,7 +226,7 @@ tresult PLUGIN_API FilterDemoProcessor::getState (IBStream* state)
 {
 	// here we need to save the model (preset or project)
 
-	float toSaveParam1 = mParam1;
+	float toSaveParam1 = gain;
 	int32 toSaveParam2 = mParam2;
 	int32 toSaveBypass = mBypass ? 1 : 0;
 
