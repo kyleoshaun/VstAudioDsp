@@ -66,11 +66,13 @@ public:
 
 protected:
 	template <typename Sample>
-	tresult processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels, float gain);
+	tresult processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels);
 
-	Vst::ParamValue gain = 0;
-	int16 mParam2 = 0;
-	bool mBypass = false;
+	Vst::ParamValue gain;
+	int32 pongDelaySamples;
+	double** delayBuf;
+	int32 delayBufIdx;
+	bool mBypass;
 };
 
 //------------------------------------------------------------------------

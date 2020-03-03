@@ -48,6 +48,13 @@ namespace FilterDemo {
 //-----------------------------------------------------------------------------
 FilterDemoProcessor::FilterDemoProcessor ()
 {
+	// Init members
+	gain = 0;
+	pongDelaySamples = 0;// 1;
+	delayBuf = 0;
+	delayBufIdx = 0;
+	mBypass = false;
+
 	// register its editor class
 	setControllerClass (MyControllerUID);
 }
@@ -93,23 +100,43 @@ tresult PLUGIN_API FilterDemoProcessor::setupProcessing (Vst::ProcessSetup& setu
 //-----------------------------------------------------------------------------
 tresult PLUGIN_API FilterDemoProcessor::setActive (TBool state)
 {
+	Vst::SpeakerArrangement arr;
+	if (getBusArrangement(Vst::kOutput, 0, arr) != kResultTrue)
+		return kResultFalse;
+	int32 numChannels = Vst::SpeakerArr::getChannelCount(arr);
+	size_t delayBufSize = processSetup.sampleRate * sizeof(Vst::Sample64) + 0.5; //max 1 sec delay (round up)
+
 	if (state) // Initialize
 	{
-		// Allocate Memory Here
-		// Ex: algo.create ();
+		delayBuf = (double**) std::malloc(sizeof(double*) * numChannels);
+		for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
+		{
+			delayBuf[channelIdx] = (double*) std::malloc(delayBufSize);
+			memset(delayBuf[channelIdx], 0, delayBufSize);
+		}
+		delayBufIdx = 0;
 	}
 	else // Release
 	{
-		// Free Memory if still allocated
-		// Ex: if(algo.isCreated ()) { algo.destroy (); }
+		if (delayBuf)
+		{
+			for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
+			{
+				std::free(delayBuf[channelIdx]);
+			}
+			std::free(delayBuf);
+			delayBuf = 0;
+		}
 	}
 	return AudioEffect::setActive (state);
 }
 
 //-----------------------------------------------------------------------------
 template <typename Sample>
-tresult FilterDemoProcessor::processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels, float gain)
+tresult FilterDemoProcessor::processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels)
 {
+	int32 delayInSamples = std::max<int32>(1, pongDelaySamples); // minimum 1 sample delay
+	int32 tempDelayIdx = delayBufIdx;
 	for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
 	{
 		Sample* channelInputBuffer  = in[channelIdx];
@@ -117,9 +144,20 @@ tresult FilterDemoProcessor::processAudio(Sample** in, Sample** out, int32 numSa
 
 		for (int sampleIdx = 0; sampleIdx < numSamples; sampleIdx++)
 		{
-			// Apply gain factor
-			channelOutputBuffer[sampleIdx] = gain*channelInputBuffer[sampleIdx];
+			channelOutputBuffer[sampleIdx] = delayBuf[channelIdx][tempDelayIdx];
+			delayBuf[channelIdx][tempDelayIdx] = gain * channelInputBuffer[sampleIdx];
+			tempDelayIdx++;
+			if (tempDelayIdx >= delayInSamples)
+			{
+				tempDelayIdx = 0;
+			}
 		}
+
+	}
+	delayBufIdx += numSamples;
+	while (delayInSamples && delayBufIdx >= delayInSamples)
+	{
+		delayBufIdx -= delayInSamples;
 	}
 
 	return kResultOk;
@@ -149,10 +187,10 @@ tresult PLUGIN_API FilterDemoProcessor::process (Vst::ProcessData& data)
 						    kResultTrue)
 							gain = value;
 						break;
-					case FilterDemoParams::kParamOnId:
-						if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) ==
-						    kResultTrue)
-							mParam2 = value > 0 ? 1 : 0;
+					case FilterDemoParams::kDelayId:
+						if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
+							kResultTrue)
+							pongDelaySamples = value * processSetup.sampleRate; // sec * samples/sec
 						break;
 					case FilterDemoParams::kBypassId:
 						if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) ==
@@ -182,11 +220,11 @@ tresult PLUGIN_API FilterDemoProcessor::process (Vst::ProcessData& data)
 
 		if (Vst::kSample32 == processSetup.symbolicSampleSize)
 		{
-			processAudio<Vst::Sample32>((Vst::Sample32**)in, (Vst::Sample32**)out, data.numSamples, data.inputs[0].numChannels, (float)gain);
+			processAudio<Vst::Sample32>((Vst::Sample32**)in, (Vst::Sample32**)out, data.numSamples, data.inputs[0].numChannels);
 		}
 		else
 		{
-			processAudio<Vst::Sample64>((Vst::Sample64**)in, (Vst::Sample64**)out, data.numSamples, data.inputs[0].numChannels, (float)gain);
+			processAudio<Vst::Sample64>((Vst::Sample64**)in, (Vst::Sample64**)out, data.numSamples, data.inputs[0].numChannels);
 		}
 	}
 	return kResultOk;
@@ -215,7 +253,7 @@ tresult PLUGIN_API FilterDemoProcessor::setState (IBStream* state)
 		return kResultFalse;
 
 	gain = savedParam1;
-	mParam2 = savedParam2 > 0 ? 1 : 0;
+	pongDelaySamples = savedParam2 > 0 ? 1 : 0;
 	mBypass = savedBypass > 0;
 
 	return kResultOk;
@@ -227,7 +265,7 @@ tresult PLUGIN_API FilterDemoProcessor::getState (IBStream* state)
 	// here we need to save the model (preset or project)
 
 	float toSaveParam1 = gain;
-	int32 toSaveParam2 = mParam2;
+	int32 toSaveParam2 = pongDelaySamples;
 	int32 toSaveBypass = mBypass ? 1 : 0;
 
 	IBStreamer streamer (state, kLittleEndian);
