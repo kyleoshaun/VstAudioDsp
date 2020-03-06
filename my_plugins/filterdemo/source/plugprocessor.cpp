@@ -36,6 +36,11 @@
 
 #include "../include/plugprocessor.h"
 #include "../include/plugids.h"
+#include "../include/firFilterDemoCoeffs.h"
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
 
 #include "base/source/fstreamer.h"
 #include "pluginterfaces/base/ibstream.h"
@@ -54,6 +59,21 @@ FilterDemoProcessor::FilterDemoProcessor ()
 	delayBuf = 0;
 	delayBufIdx = 0;
 	mBypass = false;
+	eegGains = 0;
+
+	/*std::ifstream inFile;
+	std::string testString;
+	inFile.open("C:/ProgramData/Ableton/testData.txt");
+	if (!inFile) {
+		//std::cerr << "Unable to open file datafile.txt";
+		exit(1);   // call system to stop
+	}
+	if (!inFile.eof()) // To get you all the lines.
+	{
+		getline(inFile, testString); // Saves the line in STRING.
+		gain = (double)std::stoi(testString);
+		printf("string = %s, gain=%f", testString, gain);
+	}*/
 
 	// register its editor class
 	setControllerClass (MyControllerUID);
@@ -105,6 +125,8 @@ tresult PLUGIN_API FilterDemoProcessor::setActive (TBool state)
 		return kResultFalse;
 	int32 numChannels = Vst::SpeakerArr::getChannelCount(arr);
 	size_t delayBufSize = processSetup.sampleRate * sizeof(Vst::Sample64) + 0.5; //max 1 sec delay (round up)
+	eegGains = (double*)std::malloc(sizeof(double) * 5);
+	memset(eegGains, 0, sizeof(double) * 5);
 
 	if (state) // Initialize
 	{
@@ -135,8 +157,7 @@ tresult PLUGIN_API FilterDemoProcessor::setActive (TBool state)
 template <typename Sample>
 tresult FilterDemoProcessor::processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels)
 {
-	int32 delayInSamples = std::max<int32>(1, pongDelaySamples); // minimum 1 sample delay
-	int32 tempDelayIdx = delayBufIdx;
+
 	for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
 	{
 		Sample* channelInputBuffer  = in[channelIdx];
@@ -144,20 +165,21 @@ tresult FilterDemoProcessor::processAudio(Sample** in, Sample** out, int32 numSa
 
 		for (int sampleIdx = 0; sampleIdx < numSamples; sampleIdx++)
 		{
-			channelOutputBuffer[sampleIdx] = delayBuf[channelIdx][tempDelayIdx];
-			delayBuf[channelIdx][tempDelayIdx] = gain * channelInputBuffer[sampleIdx];
-			tempDelayIdx++;
-			if (tempDelayIdx >= delayInSamples)
+			Sample x_n = channelInputBuffer[sampleIdx];
+			Sample y_n = 0;
+			delayBuf[channelIdx][0] = (double) x_n;
+			for (int i = (BL-1); i > 0; i--)
 			{
-				tempDelayIdx = 0;
+				y_n += B[i] * delayBuf[channelIdx][i];
+				delayBuf[channelIdx][i] = delayBuf[channelIdx][i - 1];
 			}
+			double gainFactor = 1.5 * (double)eegGains[0] / 100.0;
+			y_n += gainFactor * B[0] * delayBuf[channelIdx][0];
+			//y_n += 20 * gain * B[0] * delayBuf[channelIdx][0];
+			channelOutputBuffer[sampleIdx] = y_n;//  *(eegGains[0] / 100);
+
 		}
 
-	}
-	delayBufIdx += numSamples;
-	while (delayInSamples && delayBufIdx >= delayInSamples)
-	{
-		delayBufIdx -= delayInSamples;
 	}
 
 	return kResultOk;
@@ -167,6 +189,34 @@ tresult FilterDemoProcessor::processAudio(Sample** in, Sample** out, int32 numSa
 //-----------------------------------------------------------------------------
 tresult PLUGIN_API FilterDemoProcessor::process (Vst::ProcessData& data)
 {
+
+	//Read file
+	std::ifstream inFile;
+	std::string lineString;
+	std::string varString;
+
+	inFile.open("C:/ProgramData/Ableton/testData.txt");
+	if (!inFile) {
+		//std::cerr << "Unable to open file datafile.txt";
+		exit(1);   // call system to stop
+	}
+	if (!inFile.eof()) // To get you all the lines.
+	{
+		getline(inFile, lineString); // Saves the line in STRING.
+		//for (int eegGainIdx = 0; eegGainIdx < 5; eegGainIdx++)
+		//{
+			std::stringstream ssin(lineString);
+			int eegGainIdx = 0;
+			while (ssin.good() && eegGainIdx < 5) {
+				ssin >> varString;
+				eegGains[eegGainIdx] = (double)std::stoi(varString);
+				++eegGainIdx;
+			}
+			//eegGains[0] = 1;
+			//gain = eegGains[4];
+		//}
+	}
+
 	//--- Read inputs parameter changes-----------
 	if (data.inputParameterChanges)
 	{
@@ -185,7 +235,7 @@ tresult PLUGIN_API FilterDemoProcessor::process (Vst::ProcessData& data)
 					case FilterDemoParams::kGainId:
 						if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) ==
 						    kResultTrue)
-							gain = value;
+						    gain = value;
 						break;
 					case FilterDemoParams::kDelayId:
 						if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==

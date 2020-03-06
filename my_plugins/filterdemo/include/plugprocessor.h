@@ -69,6 +69,7 @@ protected:
 	tresult processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels);
 
 	Vst::ParamValue gain;
+	double* eegGains;
 	int32 pongDelaySamples;
 	double** delayBuf;
 	int32 delayBufIdx;
