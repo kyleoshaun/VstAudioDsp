@@ -14,13 +14,13 @@
  */
 
 /* General type conversion for MATLAB generated C-code  */
-#include "tmwtypes.h"
+//#include "tmwtypes.h"
 /* 
  * Expected path to tmwtypes.h 
  * C:\Program Files\MATLAB\R2018b\extern\include\tmwtypes.h 
  */
 const int BL = 21;
-const real64_T B[21] = {
+const double B[21] = {
      0.0241774250139,  0.02021685035891,  0.02741091868321,  0.03517776353965,
     0.04315459870005,  0.05092661205551,  0.05805802846835,  0.06412682971124,
     0.06875978231095,  0.07166428639988,   0.0726538095167,  0.07166428639988,

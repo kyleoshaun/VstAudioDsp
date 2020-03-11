@@ -36,6 +36,7 @@
 
 #include "../include/plugprocessor.h"
 #include "../include/plugids.h"
+#include "../include/firFilterDemoCoeffs.h"
 
 #include "base/source/fstreamer.h"
 #include "pluginterfaces/base/ibstream.h"
@@ -135,29 +136,28 @@ tresult PLUGIN_API FilterDemoProcessor::setActive (TBool state)
 template <typename Sample>
 tresult FilterDemoProcessor::processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels)
 {
-	int32 delayInSamples = std::max<int32>(1, pongDelaySamples); // minimum 1 sample delay
-	int32 tempDelayIdx = delayBufIdx;
+
 	for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
 	{
 		Sample* channelInputBuffer  = in[channelIdx];
 		Sample* channelOutputBuffer = out[channelIdx];
+		double* channelDelayBuffer  = delayBuf[channelIdx];
+		double x_n = 0; // Current Input  Sample
+		double y_n = 0; // Current Output Sample
 
 		for (int sampleIdx = 0; sampleIdx < numSamples; sampleIdx++)
 		{
-			channelOutputBuffer[sampleIdx] = delayBuf[channelIdx][tempDelayIdx];
-			delayBuf[channelIdx][tempDelayIdx] = gain * channelInputBuffer[sampleIdx];
-			tempDelayIdx++;
-			if (tempDelayIdx >= delayInSamples)
+			x_n = channelInputBuffer[sampleIdx];
+			channelDelayBuffer[0] = x_n;
+			y_n = 0;
+			for (int i = (BL - 1); i > 0; i--)
 			{
-				tempDelayIdx = 0;
+				y_n += B[i] * channelDelayBuffer[i];
+				channelDelayBuffer[i] = channelDelayBuffer[i - 1];
 			}
+			y_n += B[0] * channelDelayBuffer[0];
+			channelOutputBuffer[sampleIdx] = y_n;
 		}
-
-	}
-	delayBufIdx += numSamples;
-	while (delayInSamples && delayBufIdx >= delayInSamples)
-	{
-		delayBufIdx -= delayInSamples;
 	}
 
 	return kResultOk;
