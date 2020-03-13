@@ -38,8 +38,11 @@
 
 #include "public.sdk/source/vst/vstaudioeffect.h"
 
+
 namespace Steinberg {
 namespace FilterDemo {
+
+#define _USE_MATH_DEFINES
 
 //-----------------------------------------------------------------------------
 class FilterDemoProcessor : public Vst::AudioEffect
@@ -73,6 +76,11 @@ protected:
 	double** delayBuf;
 	int32 delayBufIdx;
 	bool mBypass;
+	double* resonatorCoeffsB;
+	int32 resonatorBL;
+	double resonatorA0;
+	double resonatorFreq;
+	double resonatorPoleRadius;
 };
 
 //------------------------------------------------------------------------

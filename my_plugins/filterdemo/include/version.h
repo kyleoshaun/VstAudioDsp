@@ -57,7 +57,7 @@
 #define VERSION_STR MAJOR_VERSION_STR "." SUB_VERSION_STR "." RELEASE_NUMBER_STR
 
 // HERE you have to define your plug-in, company name, email and web
-#define stringPluginName		"Kyle's Filter Demo"
+#define stringPluginName		"Filter Demo"
 
 #define stringOriginalFilename	"filterDemo.vst3"
 #if SMTG_PLATFORM_64

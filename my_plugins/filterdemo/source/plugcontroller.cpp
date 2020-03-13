@@ -54,11 +54,11 @@ tresult PLUGIN_API FilterDemoController::initialize (FUnknown* context)
 		                         Vst::ParameterInfo::kCanAutomate | Vst::ParameterInfo::kIsBypass,
 		                         FilterDemoParams::kBypassId);
 
-		parameters.addParameter (STR16 ("Gain"), STR16 ("V/V"), 0, .5,
-		                         Vst::ParameterInfo::kCanAutomate, FilterDemoParams::kGainId, 0,
+		parameters.addParameter (STR16 ("Resonant Frequency"), STR16 ("F / Fs/2"), 0, .5,
+		                         Vst::ParameterInfo::kCanAutomate, FilterDemoParams::kResonatorFreq, 0,
 		                         STR16 ("Param1"));
-		parameters.addParameter (STR16 ("Pong Delay"), STR16 ("Sec"), 0, 0.5,
-		                         Vst::ParameterInfo::kCanAutomate, FilterDemoParams::kDelayId, 0,
+		parameters.addParameter (STR16 ("Resonance"), STR16 ("Pole radius (0.75-1)"), 0, 0.5,
+		                         Vst::ParameterInfo::kCanAutomate, FilterDemoParams::kResonatorQ, 0,
 		                         STR16 ("Param2"));
 	}
 	return kResultTrue;
@@ -77,12 +77,12 @@ tresult PLUGIN_API FilterDemoController::setComponentState (IBStream* state)
 	float savedParam1 = 0.f;
 	if (streamer.readFloat (savedParam1) == false)
 		return kResultFalse;
-	setParamNormalized (FilterDemoParams::kGainId, savedParam1);
+	setParamNormalized (FilterDemoParams::kResonatorFreq, savedParam1);
 
 	int8 savedParam2 = 0;
 	if (streamer.readInt8 (savedParam2) == false)
 		return kResultFalse;
-	setParamNormalized (FilterDemoParams::kDelayId, savedParam2);
+	setParamNormalized (FilterDemoParams::kResonatorQ, savedParam2);
 
 	// read the bypass
 	int32 bypassState;

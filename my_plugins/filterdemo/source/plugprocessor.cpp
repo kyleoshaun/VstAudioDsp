@@ -38,6 +38,9 @@
 #include "../include/plugids.h"
 #include "../include/firFilterDemoCoeffs.h"
 
+#include <cmath>
+#include <math.h>
+
 #include "base/source/fstreamer.h"
 #include "pluginterfaces/base/ibstream.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
@@ -55,6 +58,11 @@ FilterDemoProcessor::FilterDemoProcessor ()
 	delayBuf = 0;
 	delayBufIdx = 0;
 	mBypass = false;
+	resonatorCoeffsB = 0;
+	resonatorBL = 3;
+	resonatorA0 = 1;
+	resonatorPoleRadius = 0;
+	resonatorFreq = 0;
 
 	// register its editor class
 	setControllerClass (MyControllerUID);
@@ -116,6 +124,11 @@ tresult PLUGIN_API FilterDemoProcessor::setActive (TBool state)
 			memset(delayBuf[channelIdx], 0, delayBufSize);
 		}
 		delayBufIdx = 0;
+
+		//Initialize resonator as bypass
+		resonatorA0 = 1;
+		resonatorCoeffsB = (double*) std::malloc(sizeof(double) * resonatorBL);
+		memset(resonatorCoeffsB, 0, sizeof(double) * resonatorBL);
 	}
 	else // Release
 	{
@@ -127,6 +140,8 @@ tresult PLUGIN_API FilterDemoProcessor::setActive (TBool state)
 			}
 			std::free(delayBuf);
 			delayBuf = 0;
+			std::free(resonatorCoeffsB);
+			resonatorCoeffsB = 0;
 		}
 	}
 	return AudioEffect::setActive (state);
@@ -145,7 +160,8 @@ tresult FilterDemoProcessor::processAudio(Sample** in, Sample** out, int32 numSa
 		double x_n = 0; // Current Input  Sample
 		double y_n = 0; // Current Output Sample
 
-		for (int sampleIdx = 0; sampleIdx < numSamples; sampleIdx++)
+		//FIR Filter Implementation
+		/*for (int sampleIdx = 0; sampleIdx < numSamples; sampleIdx++)
 		{
 			x_n = channelInputBuffer[sampleIdx];
 			channelDelayBuffer[0] = x_n;
@@ -156,6 +172,18 @@ tresult FilterDemoProcessor::processAudio(Sample** in, Sample** out, int32 numSa
 				channelDelayBuffer[i] = channelDelayBuffer[i - 1];
 			}
 			y_n += B[0] * channelDelayBuffer[0];
+			channelOutputBuffer[sampleIdx] = y_n;
+		}*/
+
+		//Resonator Implementation (2nd order Feedback IIR Filter)
+		for (int sampleIdx = 0; sampleIdx < numSamples; sampleIdx++)
+		{
+			x_n = channelInputBuffer[sampleIdx];
+			y_n = 0;
+			y_n = resonatorA0 * x_n - resonatorCoeffsB[1] * channelDelayBuffer[1] - resonatorCoeffsB[2] * channelDelayBuffer[2];
+			channelDelayBuffer[2] = channelDelayBuffer[1];
+			channelDelayBuffer[1] = y_n;
+
 			channelOutputBuffer[sampleIdx] = y_n;
 		}
 	}
@@ -182,15 +210,15 @@ tresult PLUGIN_API FilterDemoProcessor::process (Vst::ProcessData& data)
 				int32 numPoints = paramQueue->getPointCount ();
 				switch (paramQueue->getParameterId ())
 				{
-					case FilterDemoParams::kGainId:
+					case FilterDemoParams::kResonatorFreq: //resonatorFreq
 						if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) ==
 						    kResultTrue)
-							gain = value;
+							resonatorFreq = M_PI * value; // value is input as 0-1 -> Map to F=0-Fs/2, f=0-1/2, w=0-pi
 						break;
-					case FilterDemoParams::kDelayId:
+					case FilterDemoParams::kResonatorQ://resonatorQ
 						if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
 							kResultTrue)
-							pongDelaySamples = value * processSetup.sampleRate; // sec * samples/sec
+							resonatorPoleRadius = value*1.0 + 0; // Range = 0.00 -  1.00
 						break;
 					case FilterDemoParams::kBypassId:
 						if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) ==
@@ -200,6 +228,15 @@ tresult PLUGIN_API FilterDemoProcessor::process (Vst::ProcessData& data)
 				}
 			}
 		}
+		resonatorCoeffsB[0] = 0; //meaningless
+		resonatorCoeffsB[1] = -2 * resonatorPoleRadius * cos(resonatorFreq); 
+		resonatorCoeffsB[2] = resonatorPoleRadius * resonatorPoleRadius;
+		resonatorA0 = 1.0;
+			//Algorithm to normalize peak magnitude to 1:
+			/*(resonatorCoeffsB[2] == 0) ?
+			1.0 :
+			(1.0 - resonatorCoeffsB[2]) * sqrt(1.0 - (resonatorCoeffsB[1] * resonatorCoeffsB[1]) / (4.0 * resonatorCoeffsB[2]));*/
+
 	}
 
 	//--- Process Audio---------------------
