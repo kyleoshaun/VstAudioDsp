@@ -1,8 +1,8 @@
-//------------------------------------------------------------------------
+///------------------------------------------------------------------------
 // Project     : VST SDK
 //
 // Category    : Examples
-// Filename    : helloworld/include/version.h
+// Filename    : plugcontroller.h
 // Created by  : Steinberg, 01/2018
 // Description : HelloWorld Example for VST 3
 //
@@ -36,38 +36,31 @@
 
 #pragma once
 
-#include "pluginterfaces/base/fplatform.h"
+#include "public.sdk/source/vst/vsteditcontroller.h"
 
-#define MAJOR_VERSION_STR "1"
-#define MAJOR_VERSION_INT 1
+namespace Steinberg {
+namespace ResonatorDemo {
 
-#define SUB_VERSION_STR "0"
-#define SUB_VERSION_INT 0
+//-----------------------------------------------------------------------------
+class ResonatorDemoController : public Vst::EditController
+{
+public:
+//------------------------------------------------------------------------
+	// create function required for Plug-in factory,
+	// it will be called to create new instances of this controller
+//------------------------------------------------------------------------
+	static FUnknown* createInstance (void*)
+	{
+		return (Vst::IEditController*)new ResonatorDemoController ();
+	}
 
-#define RELEASE_NUMBER_STR "0"
-#define RELEASE_NUMBER_INT 0
+	//---from IPluginBase--------
+	tresult PLUGIN_API initialize (FUnknown* context) SMTG_OVERRIDE;
 
-#define BUILD_NUMBER_STR "1" // Build number to be sure that each result could identified.
-#define BUILD_NUMBER_INT 1
+	//---from EditController-----
+	tresult PLUGIN_API setComponentState (IBStream* state) SMTG_OVERRIDE;
+};
 
-// Version with build number (example "1.0.3.342")
-#define FULL_VERSION_STR MAJOR_VERSION_STR "." SUB_VERSION_STR "." RELEASE_NUMBER_STR "." BUILD_NUMBER_STR
-
-// Version without build number (example "1.0.3")
-#define VERSION_STR MAJOR_VERSION_STR "." SUB_VERSION_STR "." RELEASE_NUMBER_STR
-
-// HERE you have to define your plug-in, company name, email and web
-#define stringPluginName		"MATLAB FIR Filter Demo"
-
-#define stringOriginalFilename	"MatlabFirFilterDemo.vst3"
-#if SMTG_PLATFORM_64
-#define stringFileDescription	stringPluginName" VST3-SDK (64Bit)"
-#else
-#define stringFileDescription	stringPluginName" VST3-SDK"
-#endif
-#define stringCompanyName		"Kyleoshaun Projects\0"
-#define stringCompanyWeb		"https://github.com/kyleoshaun"
-#define stringCompanyEmail		"mailto:kj.oshaughnessy@gmail.com"
-
-#define stringLegalCopyright	"© 2019 Steinberg Media Technologies"
-#define stringLegalTrademarks	"VST is a trademark of Steinberg Media Technologies GmbH"
+//------------------------------------------------------------------------
+} // namespace
+} // namespace Steinberg

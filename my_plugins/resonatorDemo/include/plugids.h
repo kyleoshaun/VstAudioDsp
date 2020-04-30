@@ -2,7 +2,7 @@
 // Project     : VST SDK
 //
 // Category    : Examples
-// Filename    : helloworld/include/version.h
+// Filename    : plugids.h
 // Created by  : Steinberg, 01/2018
 // Description : HelloWorld Example for VST 3
 //
@@ -36,38 +36,24 @@
 
 #pragma once
 
-#include "pluginterfaces/base/fplatform.h"
+namespace Steinberg {
+namespace ResonatorDemo {
 
-#define MAJOR_VERSION_STR "1"
-#define MAJOR_VERSION_INT 1
+// HERE are defined the parameter Ids which are exported to the host
+enum ResonatorDemoParams : Vst::ParamID
+{
+	kBypassId = 100,
 
-#define SUB_VERSION_STR "0"
-#define SUB_VERSION_INT 0
+	kResonatorFreq = 102,
+	kResonatorQ = 1000
+};
 
-#define RELEASE_NUMBER_STR "0"
-#define RELEASE_NUMBER_INT 0
 
-#define BUILD_NUMBER_STR "1" // Build number to be sure that each result could identified.
-#define BUILD_NUMBER_INT 1
+// HERE you have to define new unique class ids: for processor and for controller
+// you can use GUID creator tools like https://www.guidgenerator.com/
+static const FUID MyProcessorUID (0x6C3B534E, 0x66AB4198, 0xA81ACBBA, 0x451E95F1);
+static const FUID MyControllerUID (0xCF756758, 0xB64844D0, 0xAE2A0782, 0xFFB680F8);
 
-// Version with build number (example "1.0.3.342")
-#define FULL_VERSION_STR MAJOR_VERSION_STR "." SUB_VERSION_STR "." RELEASE_NUMBER_STR "." BUILD_NUMBER_STR
-
-// Version without build number (example "1.0.3")
-#define VERSION_STR MAJOR_VERSION_STR "." SUB_VERSION_STR "." RELEASE_NUMBER_STR
-
-// HERE you have to define your plug-in, company name, email and web
-#define stringPluginName		"MATLAB FIR Filter Demo"
-
-#define stringOriginalFilename	"MatlabFirFilterDemo.vst3"
-#if SMTG_PLATFORM_64
-#define stringFileDescription	stringPluginName" VST3-SDK (64Bit)"
-#else
-#define stringFileDescription	stringPluginName" VST3-SDK"
-#endif
-#define stringCompanyName		"Kyleoshaun Projects\0"
-#define stringCompanyWeb		"https://github.com/kyleoshaun"
-#define stringCompanyEmail		"mailto:kj.oshaughnessy@gmail.com"
-
-#define stringLegalCopyright	"© 2019 Steinberg Media Technologies"
-#define stringLegalTrademarks	"VST is a trademark of Steinberg Media Technologies GmbH"
+//------------------------------------------------------------------------
+} // namespace FilterDemo
+} // namespace Steinberg
