@@ -1,3 +1,8 @@
-VST3_SDK/build
+VST3_SDK
+VST2_SDK
 my_plugins/build
+my_plugins/CMakeLists.txt
+my_plugins/helloworld/
+my_plugins/helloworld_with_VSTGUI/
 Videos
+copy_vst2_to_vst3_sdk.bat
