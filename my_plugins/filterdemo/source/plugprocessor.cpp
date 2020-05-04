@@ -53,17 +53,18 @@ namespace FilterDemo {
 FilterDemoProcessor::FilterDemoProcessor ()
 {
 	// Init members
-	gain = 0;
-	pongDelaySamples = 0;// 1;
-	delayBuf = 0;
-	delayBufIdx = 0;
+	outputDelayBuf = 0;
 	mBypass = false;
-	resonatorCoeffsB = 0;
-	resonatorBL = 3;
-	resonatorA0 = 1;
+	fbFilterCoeffsA = 0;
 	resonatorPoleRadius = 0;
 	resonatorFreq = 0;
-
+	ffwFilterCoeffsB = 0;
+	inputDelayBuf = 0;
+	noOfZeroPairs = 1;
+	noOfPolePairs = 0;
+	noOfSecOrderFilters = std::max(noOfZeroPairs, noOfPolePairs);
+	cutoffFreq = 0;
+	zeroRadius = 1;
 	// register its editor class
 	setControllerClass (MyControllerUID);
 }
@@ -113,35 +114,78 @@ tresult PLUGIN_API FilterDemoProcessor::setActive (TBool state)
 	if (getBusArrangement(Vst::kOutput, 0, arr) != kResultTrue)
 		return kResultFalse;
 	int32 numChannels = Vst::SpeakerArr::getChannelCount(arr);
-	size_t delayBufSize = processSetup.sampleRate * sizeof(Vst::Sample64) + 0.5; //max 1 sec delay (round up)
+	size_t outputDelayBufSize = sizeof(Vst::Sample64) * BIQUAD_NO_OF_A_COEFFS + 0.5; //max 1 sec delay (round up)
+	size_t inputDelayBufSize  = sizeof(Vst::Sample64) * BIQUAD_NO_OF_B_COEFFS + 0.5;
+	size_t secOrderFilterCoeffSize = 2 * sizeof(double);
 
 	if (state) // Initialize
 	{
-		delayBuf = (double**) std::malloc(sizeof(double*) * numChannels);
+		// Delay Buffers
+		outputDelayBuf = (double***)std::malloc(sizeof(double**) * numChannels);
+		inputDelayBuf  = (double***)std::malloc(sizeof(double**) * numChannels);
 		for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
 		{
-			delayBuf[channelIdx] = (double*) std::malloc(delayBufSize);
-			memset(delayBuf[channelIdx], 0, delayBufSize);
-		}
-		delayBufIdx = 0;
+			inputDelayBuf[channelIdx]  = (double**)std::malloc(sizeof(double*) * MAX_NO_OF_2ND_ORDER_FILTERS);
+			outputDelayBuf[channelIdx] = (double**)std::malloc(sizeof(double*) * MAX_NO_OF_2ND_ORDER_FILTERS);
+			double** channelInputDelayBuf  = inputDelayBuf[channelIdx];
+			double** channelOutputDelayBuf = outputDelayBuf[channelIdx];
+			for (int filterIdx = 0; filterIdx < MAX_NO_OF_2ND_ORDER_FILTERS; filterIdx++)
+			{
+				channelInputDelayBuf[filterIdx]  = (double*)std::malloc(inputDelayBufSize);
+				channelOutputDelayBuf[filterIdx] = (double*)std::malloc(outputDelayBufSize);
 
-		//Initialize resonator as bypass
-		resonatorA0 = 1;
-		resonatorCoeffsB = (double*) std::malloc(sizeof(double) * resonatorBL);
-		memset(resonatorCoeffsB, 0, sizeof(double) * resonatorBL);
+				memset(channelInputDelayBuf[filterIdx],  0, inputDelayBufSize);
+				memset(channelOutputDelayBuf[filterIdx], 0, outputDelayBufSize);
+			}
+		}
+
+
+		// Filter Coefficients
+		ffwFilterCoeffsB       = (double**)std::malloc(sizeof(double*) * MAX_NO_OF_2ND_ORDER_FILTERS);
+		fbFilterCoeffsA = (double**)std::malloc(sizeof(double*) * MAX_NO_OF_2ND_ORDER_FILTERS);
+		for (int filterIdx = 0; filterIdx < MAX_NO_OF_2ND_ORDER_FILTERS; filterIdx++)
+		{
+			ffwFilterCoeffsB[filterIdx] = (double*)std::malloc(secOrderFilterCoeffSize);
+			fbFilterCoeffsA[filterIdx]  = (double*)std::malloc(secOrderFilterCoeffSize);
+
+			memset(ffwFilterCoeffsB[filterIdx], 0, secOrderFilterCoeffSize);
+			memset(fbFilterCoeffsA[filterIdx], 0, secOrderFilterCoeffSize);
+
+			//Initialize as bypass (Set b1 = 1 for each 2nd order component)
+			double* filterFfwCoeffsA = ffwFilterCoeffsB[filterIdx];
+			filterFfwCoeffsA[0] = 1;
+		}
 	}
 	else // Release
 	{
-		if (delayBuf)
+		if (outputDelayBuf)
 		{
+			//Delay Buffers
 			for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
 			{
-				std::free(delayBuf[channelIdx]);
+				double** channelInputDelayBuf = inputDelayBuf[channelIdx];
+				double** channelOutputDelayBuf = outputDelayBuf[channelIdx];
+				for (int filterIdx = 0; filterIdx < MAX_NO_OF_2ND_ORDER_FILTERS; filterIdx++)
+				{
+					std::free(channelInputDelayBuf[filterIdx]);
+					std::free(channelOutputDelayBuf[filterIdx]);
+				}
+				std::free(outputDelayBuf[channelIdx]);
+				std::free(inputDelayBuf[channelIdx]);
 			}
-			std::free(delayBuf);
-			delayBuf = 0;
-			std::free(resonatorCoeffsB);
-			resonatorCoeffsB = 0;
+			std::free(outputDelayBuf);
+			outputDelayBuf = 0;
+			std::free(inputDelayBuf);
+			inputDelayBuf = 0;
+
+			//Filter Coefficients
+			for (int filterIdx = 0; filterIdx < MAX_NO_OF_2ND_ORDER_FILTERS; filterIdx++)
+			{
+				std::free(ffwFilterCoeffsB[filterIdx]);
+				std::free(fbFilterCoeffsA[filterIdx]);
+			}
+			std::free(fbFilterCoeffsA);
+			fbFilterCoeffsA = 0;
 		}
 	}
 	return AudioEffect::setActive (state);
@@ -156,34 +200,39 @@ tresult FilterDemoProcessor::processAudio(Sample** in, Sample** out, int32 numSa
 	{
 		Sample* channelInputBuffer  = in[channelIdx];
 		Sample* channelOutputBuffer = out[channelIdx];
-		double* channelDelayBuffer  = delayBuf[channelIdx];
+		double** channelOutputDelayBuffer  = outputDelayBuf[channelIdx];
+		double** channelInputDelayBuffer   = inputDelayBuf[channelIdx];
 		double x_n = 0; // Current Input  Sample
 		double y_n = 0; // Current Output Sample
 
-		//FIR Filter Implementation
-		/*for (int sampleIdx = 0; sampleIdx < numSamples; sampleIdx++)
-		{
-			x_n = channelInputBuffer[sampleIdx];
-			channelDelayBuffer[0] = x_n;
-			y_n = 0;
-			for (int i = (BL - 1); i > 0; i--)
-			{
-				y_n += B[i] * channelDelayBuffer[i];
-				channelDelayBuffer[i] = channelDelayBuffer[i - 1];
-			}
-			y_n += B[0] * channelDelayBuffer[0];
-			channelOutputBuffer[sampleIdx] = y_n;
-		}*/
-
-		//Resonator Implementation (2nd order Feedback IIR Filter)
+		//Filter Implementation (DFI Cascaded-Biquad IIR Filter)
 		for (int sampleIdx = 0; sampleIdx < numSamples; sampleIdx++)
 		{
 			x_n = channelInputBuffer[sampleIdx];
 			y_n = 0;
-			y_n = resonatorA0 * x_n - resonatorCoeffsB[1] * channelDelayBuffer[1] - resonatorCoeffsB[2] * channelDelayBuffer[2];
-			channelDelayBuffer[2] = channelDelayBuffer[1];
-			channelDelayBuffer[1] = y_n;
+			for (int filterIdx = 0; filterIdx < noOfSecOrderFilters; filterIdx++)
+			{
+				// Get buffers/coeffs for current filter component (Current Biquad)
+				double* biquadFbCoeffs_a = fbFilterCoeffsA[filterIdx];
+				double* biquadFfCoeffs_b = ffwFilterCoeffsB[filterIdx];
+				double* outputDelayBuffer = channelOutputDelayBuffer[filterIdx];
+				double* inputDelayBuffer = channelInputDelayBuffer[filterIdx];
 
+				//Compute output of current filter component
+				y_n = biquadFfCoeffs_b[0] * x_n + biquadFfCoeffs_b[1] * inputDelayBuffer[1]  + biquadFfCoeffs_b[2] * inputDelayBuffer[2] -
+					                              biquadFbCoeffs_a[1] * outputDelayBuffer[1] - biquadFbCoeffs_a[2] * outputDelayBuffer[2];
+
+				//Update delay buffers for current filter component
+				outputDelayBuffer[2] = outputDelayBuffer[1];
+				outputDelayBuffer[1] = y_n;
+				inputDelayBuffer[2] = inputDelayBuffer[1];
+				inputDelayBuffer[1] = x_n;
+
+				//Set output to input of next filter component
+				x_n = y_n;
+			}
+
+			//Set output of last filter component to output of system
 			channelOutputBuffer[sampleIdx] = y_n;
 		}
 	}
@@ -205,20 +254,35 @@ tresult PLUGIN_API FilterDemoProcessor::process (Vst::ProcessData& data)
 			    data.inputParameterChanges->getParameterData (index);
 			if (paramQueue)
 			{
+				double exponenetialFreqFactor = 1;
+				double minCutoffFreq = 0.00306;
 				Vst::ParamValue value;
 				int32 sampleOffset;
 				int32 numPoints = paramQueue->getPointCount ();
 				switch (paramQueue->getParameterId ())
 				{
-					case FilterDemoParams::kResonatorFreq: //resonatorFreq
-						if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) ==
-						    kResultTrue)
-							resonatorFreq = M_PI * value; // value is input as 0-1 -> Map to F=0-Fs/2, f=0-1/2, w=0-pi
-						break;
-					case FilterDemoParams::kResonatorQ://resonatorQ
+					case FilterDemoParams::kNoZeroPairs:
 						if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
 							kResultTrue)
-							resonatorPoleRadius = value*1.0 + 0; // Range = 0.00 -  1.00
+							noOfZeroPairs = 10 * value; // Range = 0 - 10
+						break;
+					case FilterDemoParams::kNoPolePairs:
+						if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
+							kResultTrue)
+							noOfPolePairs = 10 * value; // Range = 0 - 10
+						break;
+					case FilterDemoParams::kResonatorQ:
+						if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
+							kResultTrue)
+							resonatorPoleRadius = value*0.2 + 0.8; // Range = 0.80 -  1.00
+						break;
+					case FilterDemoParams::kCutoffFreq:
+						if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
+							kResultTrue)
+							exponenetialFreqFactor = pow(2.0, (10.0 * value)); // 2 ^ 10*val -- Range = 1 - 1024 (exp scale for audio frequency)
+							cutoffFreq = exponenetialFreqFactor * minCutoffFreq; // Range = minCutoffFreq - M_PI
+							resonatorFreq = cutoffFreq - 0.09;// offset slightly
+							zeroRadius = 1.0; // True Zero (On Unit Circle)
 						break;
 					case FilterDemoParams::kBypassId:
 						if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) ==
@@ -226,16 +290,32 @@ tresult PLUGIN_API FilterDemoProcessor::process (Vst::ProcessData& data)
 							mBypass = (value > 0.5f);
 						break;
 				}
+				noOfSecOrderFilters = std::max(noOfPolePairs, noOfZeroPairs);
 			}
 		}
-		resonatorCoeffsB[0] = 0; //meaningless
-		resonatorCoeffsB[1] = -2 * resonatorPoleRadius * cos(resonatorFreq); 
-		resonatorCoeffsB[2] = resonatorPoleRadius * resonatorPoleRadius;
-		resonatorA0 = 1.0;
-			//Algorithm to normalize peak magnitude to 1:
-			/*(resonatorCoeffsB[2] == 0) ?
-			1.0 :
-			(1.0 - resonatorCoeffsB[2]) * sqrt(1.0 - (resonatorCoeffsB[1] * resonatorCoeffsB[1]) / (4.0 * resonatorCoeffsB[2]));*/
+
+		//Feedback (B)
+		//Resonator Poles
+		for (int filterIdx = 0; filterIdx < noOfPolePairs; filterIdx++)
+		{
+			double* fbCoeffsi = fbFilterCoeffsA[filterIdx];
+			fbCoeffsi[0] = 1;
+			fbCoeffsi[1] = -2 * resonatorPoleRadius * cos(resonatorFreq);
+			fbCoeffsi[2] = resonatorPoleRadius * resonatorPoleRadius;
+		}
+
+
+		//Feedforward (A)
+		// Evenly distributed zeros f=cutoff to f=fs/2 (Nyquist)
+		double interZeroFreqDelta = (M_PI - cutoffFreq) / noOfZeroPairs;
+		for (int filterIdx = 0; filterIdx < noOfZeroPairs; filterIdx++)
+		{
+			double* ffwCoeffsi = ffwFilterCoeffsB[filterIdx];
+			double zeroFreq = cutoffFreq + interZeroFreqDelta * filterIdx;
+			ffwCoeffsi[0] = 1;
+			ffwCoeffsi[1] = -2 * zeroRadius * cos(zeroFreq);
+			ffwCoeffsi[2] = zeroRadius * zeroRadius;
+		}
 
 	}
 
@@ -289,8 +369,6 @@ tresult PLUGIN_API FilterDemoProcessor::setState (IBStream* state)
 	if (streamer.readInt32 (savedBypass) == false)
 		return kResultFalse;
 
-	gain = savedParam1;
-	pongDelaySamples = savedParam2 > 0 ? 1 : 0;
 	mBypass = savedBypass > 0;
 
 	return kResultOk;
@@ -301,8 +379,8 @@ tresult PLUGIN_API FilterDemoProcessor::getState (IBStream* state)
 {
 	// here we need to save the model (preset or project)
 
-	float toSaveParam1 = gain;
-	int32 toSaveParam2 = pongDelaySamples;
+	float toSaveParam1 = 0;
+	int32 toSaveParam2 = 0;
 	int32 toSaveBypass = mBypass ? 1 : 0;
 
 	IBStreamer streamer (state, kLittleEndian);

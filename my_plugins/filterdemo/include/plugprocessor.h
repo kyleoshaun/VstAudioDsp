@@ -43,6 +43,9 @@ namespace Steinberg {
 namespace FilterDemo {
 
 #define _USE_MATH_DEFINES
+#define MAX_NO_OF_2ND_ORDER_FILTERS 10
+#define BIQUAD_NO_OF_B_COEFFS 2
+#define BIQUAD_NO_OF_A_COEFFS 2
 
 //-----------------------------------------------------------------------------
 class FilterDemoProcessor : public Vst::AudioEffect
@@ -71,16 +74,24 @@ protected:
 	template <typename Sample>
 	tresult processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels);
 
-	Vst::ParamValue gain;
-	int32 pongDelaySamples;
-	double** delayBuf;
-	int32 delayBufIdx;
+	// Sample Delay Buffers
+	double*** outputDelayBuf; // [channel][filterComponent][delay]
+	double*** inputDelayBuf;
 	bool mBypass;
-	double* resonatorCoeffsB;
-	int32 resonatorBL;
-	double resonatorA0;
+
+	//Filter Design Parameters
+	double cutoffFreq;
+	double zeroRadius;
 	double resonatorFreq;
 	double resonatorPoleRadius;
+	int32 noOfZeroPairs;
+	int32 noOfPolePairs;
+
+	// Filter Coefficients
+	int32 noOfSecOrderFilters;
+	double** ffwFilterCoeffsB; //Feed-forward
+	double** fbFilterCoeffsA; //Feed-back (Resonator)
+
 };
 
 //------------------------------------------------------------------------

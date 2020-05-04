@@ -44,8 +44,10 @@ enum FilterDemoParams : Vst::ParamID
 {
 	kBypassId = 100,
 
-	kResonatorFreq = 102,
-	kResonatorQ = 1000
+	kNoZeroPairs = 102,
+	kResonatorQ = 1000,
+	kCutoffFreq = 1002,
+	kNoPolePairs = 1003
 };
 
 

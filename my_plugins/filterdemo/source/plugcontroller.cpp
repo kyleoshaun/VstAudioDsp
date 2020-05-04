@@ -54,12 +54,19 @@ tresult PLUGIN_API FilterDemoController::initialize (FUnknown* context)
 		                         Vst::ParameterInfo::kCanAutomate | Vst::ParameterInfo::kIsBypass,
 		                         FilterDemoParams::kBypassId);
 
-		parameters.addParameter (STR16 ("Resonant Frequency"), STR16 ("F / Fs/2"), 0, .5,
-		                         Vst::ParameterInfo::kCanAutomate, FilterDemoParams::kResonatorFreq, 0,
-		                         STR16 ("Param1"));
-		parameters.addParameter (STR16 ("Resonance"), STR16 ("Pole radius (0.75-1)"), 0, 0.5,
+		parameters.addParameter (STR16 ("Resonance"), STR16 (""), 0, 0,
 		                         Vst::ParameterInfo::kCanAutomate, FilterDemoParams::kResonatorQ, 0,
 		                         STR16 ("Param2"));
+		parameters.addParameter(STR16("Cutoff"), STR16("(F / Fs/2)"), 0, 1, // Fs/2
+								Vst::ParameterInfo::kCanAutomate, FilterDemoParams::kCutoffFreq, 0,
+								STR16("Param3"));
+		parameters.addParameter(STR16("# Zero Pairs"), STR16("(1-10)"), 0, .1, // 1 pole
+								Vst::ParameterInfo::kCanAutomate, FilterDemoParams::kNoZeroPairs, 0,
+								STR16("Param1"));
+		parameters.addParameter(STR16("# Pole Pairs"), STR16("(1-10)"), 0, 0,
+								Vst::ParameterInfo::kCanAutomate, FilterDemoParams::kNoPolePairs, 0,
+								STR16("Param4"));
+
 	}
 	return kResultTrue;
 }
@@ -77,7 +84,7 @@ tresult PLUGIN_API FilterDemoController::setComponentState (IBStream* state)
 	float savedParam1 = 0.f;
 	if (streamer.readFloat (savedParam1) == false)
 		return kResultFalse;
-	setParamNormalized (FilterDemoParams::kResonatorFreq, savedParam1);
+	setParamNormalized (FilterDemoParams::kNoZeroPairs, savedParam1);
 
 	int8 savedParam2 = 0;
 	if (streamer.readInt8 (savedParam2) == false)
