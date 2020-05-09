@@ -2,7 +2,7 @@
 // Project     : VST SDK
 //
 // Category    : Examples
-// Filename    : helloworld/include/version.h
+// Filename    : plugprocessor.h
 // Created by  : Steinberg, 01/2018
 // Description : HelloWorld Example for VST 3
 //
@@ -36,38 +36,56 @@
 
 #pragma once
 
-#include "pluginterfaces/base/fplatform.h"
+#include "public.sdk/source/vst/vstaudioeffect.h"
 
-#define MAJOR_VERSION_STR "1"
-#define MAJOR_VERSION_INT 1
 
-#define SUB_VERSION_STR "0"
-#define SUB_VERSION_INT 0
+namespace Steinberg {
+namespace SecondOrderLpf {
 
-#define RELEASE_NUMBER_STR "0"
-#define RELEASE_NUMBER_INT 0
+#define _USE_MATH_DEFINES
+#define BIQUAD_NO_OF_FB_COEFFS 2
+#define BIQUAD_NO_OF_FF_COEFFS 2
+#define MIN_RESONANCE_Q_FACTOR 0.707
+#define MAX_RESONANCE_Q_FACTOR 40.0
 
-#define BUILD_NUMBER_STR "1" // Build number to be sure that each result could identified.
-#define BUILD_NUMBER_INT 1
+//-----------------------------------------------------------------------------
+class SecondOrderLpfProcessor : public Vst::AudioEffect
+{
+public:
+	SecondOrderLpfProcessor ();
 
-// Version with build number (example "1.0.3.342")
-#define FULL_VERSION_STR MAJOR_VERSION_STR "." SUB_VERSION_STR "." RELEASE_NUMBER_STR "." BUILD_NUMBER_STR
+	tresult PLUGIN_API initialize (FUnknown* context) SMTG_OVERRIDE;
+	tresult PLUGIN_API setBusArrangements (Vst::SpeakerArrangement* inputs, int32 numIns,
+	                                       Vst::SpeakerArrangement* outputs, int32 numOuts) SMTG_OVERRIDE;
 
-// Version without build number (example "1.0.3")
-#define VERSION_STR MAJOR_VERSION_STR "." SUB_VERSION_STR "." RELEASE_NUMBER_STR
+	tresult PLUGIN_API setupProcessing (Vst::ProcessSetup& setup) SMTG_OVERRIDE;
+	tresult PLUGIN_API setActive (TBool state) SMTG_OVERRIDE;
+	tresult PLUGIN_API process (Vst::ProcessData& data) SMTG_OVERRIDE;
 
-// HERE you have to define your plug-in, company name, email and web
-#define stringPluginName		"Filter Demo"
+//------------------------------------------------------------------------
+	tresult PLUGIN_API setState (IBStream* state) SMTG_OVERRIDE;
+	tresult PLUGIN_API getState (IBStream* state) SMTG_OVERRIDE;
 
-#define stringOriginalFilename	"filterDemo.vst3"
-#if SMTG_PLATFORM_64
-#define stringFileDescription	stringPluginName" VST3-SDK (64Bit)"
-#else
-#define stringFileDescription	stringPluginName" VST3-SDK"
-#endif
-#define stringCompanyName		"Kyleoshaun Projects\0"
-#define stringCompanyWeb		"https://github.com/kyleoshaun"
-#define stringCompanyEmail		"mailto:kj.oshaughnessy@gmail.com"
+	static FUnknown* createInstance (void*)
+	{
+		return (Vst::IAudioProcessor*)new SecondOrderLpfProcessor ();
+	}
 
-#define stringLegalCopyright	"© 2019 Steinberg Media Technologies"
-#define stringLegalTrademarks	"VST is a trademark of Steinberg Media Technologies GmbH"
+protected:
+	template <typename Sample>
+	tresult processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels);
+
+	double** inputDelayBuf; // [channel][sample]
+	double** outputDelayBuf;
+	bool mBypass;
+	double* fbFilterCoeffsA;
+	double* ffFilterCoeffsB;
+	int32 BL;
+	int32 AL;
+	double cutoffFreq;
+	double resonanceQFactor;
+};
+
+//------------------------------------------------------------------------
+} // namespace
+} // namespace Steinberg

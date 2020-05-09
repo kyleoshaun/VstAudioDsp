@@ -57,9 +57,9 @@
 #define VERSION_STR MAJOR_VERSION_STR "." SUB_VERSION_STR "." RELEASE_NUMBER_STR
 
 // HERE you have to define your plug-in, company name, email and web
-#define stringPluginName		"Filter Demo"
+#define stringPluginName		"Second Order LPF"
 
-#define stringOriginalFilename	"filterDemo.vst3"
+#define stringOriginalFilename	"secondOrderLpf.vst3"
 #if SMTG_PLATFORM_64
 #define stringFileDescription	stringPluginName" VST3-SDK (64Bit)"
 #else

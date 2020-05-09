@@ -4,3 +4,4 @@
 add_subdirectory(filterDemo)
 add_subdirectory(matlabFirFilterDemo)
 add_subdirectory(resonatorDemo)
+add_subdirectory(secondOrderLpf)
