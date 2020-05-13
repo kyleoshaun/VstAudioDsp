@@ -43,8 +43,8 @@ namespace Steinberg {
 namespace SecondOrderLpf {
 
 #define _USE_MATH_DEFINES
-#define BIQUAD_NO_OF_FB_COEFFS 2
-#define BIQUAD_NO_OF_FF_COEFFS 2
+#define BIQUAD_NO_OF_FB_COEFFS 3
+#define BIQUAD_NO_OF_FF_COEFFS 3
 #define MIN_RESONANCE_Q_FACTOR 0.707
 #define MAX_RESONANCE_Q_FACTOR 40.0
 
