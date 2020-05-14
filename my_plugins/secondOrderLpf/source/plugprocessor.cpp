@@ -60,6 +60,7 @@ SecondOrderLpfProcessor::SecondOrderLpfProcessor ()
 	AL = BIQUAD_NO_OF_FB_COEFFS;
 	BL = BIQUAD_NO_OF_FF_COEFFS;
 	cutoffFreq = 0;
+    resonanceQFactor = MIN_RESONANCE_Q_FACTOR;
 
 	// register its editor class
 	setControllerClass (MyControllerUID);
@@ -226,7 +227,6 @@ tresult PLUGIN_API SecondOrderLpfProcessor::process (Vst::ProcessData& data)
 					case SecondOrderLpfParams::kCutoffFreq: //resonatorFreq
 						if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
 							kResultTrue)
-							//cutoffFreq = M_PI * value; // value is input as 0-1 -> Map to F=0-Fs/2, f=0-1/2, w=0-pi
 							cutoffFreq = 0.01 * pow(2.0, 8.295 * value); // Convert linear 0-1 input to exponential (base 2) 0.01-PI cutoff
 						break;
 					case SecondOrderLpfParams::kResonanceQ://resonatorQ
