@@ -50,16 +50,30 @@ tresult PLUGIN_API SecondOrderBpfController::initialize (FUnknown* context)
 	if (result == kResultTrue)
 	{
 		//---Create Parameters------------
-		parameters.addParameter (STR16 ("Bypass"), 0, 1, 0,
-		                         Vst::ParameterInfo::kCanAutomate | Vst::ParameterInfo::kIsBypass,
-		                         SecondOrderBpfParams::kBypassId);
+		parameters.addParameter(
+      STR16 ("Bypass"), 0, 1, 0,
+		  Vst::ParameterInfo::kCanAutomate | Vst::ParameterInfo::kIsBypass,
+		  SecondOrderBpfParams::kBypassId);
 
-		parameters.addParameter (STR16 ("Cutoff Frequency"), STR16 ("F / Fs/2"), 0, 1,
-		                         Vst::ParameterInfo::kCanAutomate, SecondOrderBpfParams::kCutoffFreq, 0,
-		                         STR16 ("Param1"));
-		parameters.addParameter (STR16 ("Resonance"), STR16 (""), 0, 0,
-		                         Vst::ParameterInfo::kCanAutomate, SecondOrderBpfParams::kResonanceQ, 0,
-		                         STR16 ("Param2"));
+		parameters.addParameter(
+      STR16 ("LPF Cutoff"), STR16 ("F / Fs/2"), 0, 1,
+      Vst::ParameterInfo::kCanAutomate, SecondOrderBpfParams::kLpfCutoffFreq, 0,
+      STR16 ("Param1"));
+
+		parameters.addParameter(
+      STR16 ("LPF Resonance"), STR16 (""), 0, 0,
+      Vst::ParameterInfo::kCanAutomate, SecondOrderBpfParams::kLpfResonanceQ, 0,
+      STR16 ("Param2"));
+
+    parameters.addParameter(
+      STR16 ("HPF Cutoff"), STR16 ("F / Fs/2"), 0, 0,
+      Vst::ParameterInfo::kCanAutomate, SecondOrderBpfParams::kHpfCutoffFreq, 0,
+      STR16 ("Param1"));
+
+    parameters.addParameter(
+      STR16 ("HPF Resonance"), STR16 (""), 0, 0,
+      Vst::ParameterInfo::kCanAutomate, SecondOrderBpfParams::kHpfResonanceQ, 0,
+      STR16 ("Param2"));
 	}
 	return kResultTrue;
 }
@@ -77,12 +91,12 @@ tresult PLUGIN_API SecondOrderBpfController::setComponentState (IBStream* state)
 	float savedParam1 = 0.f;
 	if (streamer.readFloat (savedParam1) == false)
 		return kResultFalse;
-	setParamNormalized (SecondOrderBpfParams::kCutoffFreq, savedParam1);
+	setParamNormalized (SecondOrderBpfParams::kLpfCutoffFreq, savedParam1);
 
 	int8 savedParam2 = 0;
 	if (streamer.readInt8 (savedParam2) == false)
 		return kResultFalse;
-	setParamNormalized (SecondOrderBpfParams::kResonanceQ, savedParam2);
+	setParamNormalized (SecondOrderBpfParams::kLpfResonanceQ, savedParam2);
 
 	// read the bypass
 	int32 bypassState;

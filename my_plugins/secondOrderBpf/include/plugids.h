@@ -44,15 +44,18 @@ enum SecondOrderBpfParams : Vst::ParamID
 {
 	kBypassId = 100,
 
-	kCutoffFreq = 102,
-	kResonanceQ = 1000
+	kLpfCutoffFreq = 102,
+	kLpfResonanceQ = 1000,
+
+  kHpfCutoffFreq = 103,
+  kHpfResonanceQ = 1001
 };
 
 
 // HERE you have to define new unique class ids: for processor and for controller
 // you can use GUID creator tools like https://www.guidgenerator.com/
-static const FUID MyProcessorUID (0x6C3B534E, 0x66AB4198, 0xA81ACBBA, 0x451E95F1);
-static const FUID MyControllerUID (0xCF756758, 0xB64844D0, 0xAE2A0782, 0xFFB680F8);
+static const FUID MyProcessorUID (0xF7FEE2CD, 0xCD104E1C, 0x8C7ECC98, 0xDB14A870);
+static const FUID MyControllerUID (0x19A791B0, 0xC9FC4C8D, 0xA7F090C5, 0xE1B99D2C);
 
 //------------------------------------------------------------------------
 } // namespace FilterDemo

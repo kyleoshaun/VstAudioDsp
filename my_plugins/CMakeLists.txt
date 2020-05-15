@@ -1,6 +1,5 @@
-#add_subdirectory(helloworld)
-#add_subdirectory(helloworld_with_VSTGUI)
 add_subdirectory(filterDemo)
 add_subdirectory(matlabFirFilterDemo)
 add_subdirectory(resonatorDemo)
 add_subdirectory(secondOrderLpf)
+add_subdirectory(secondOrderBpf)

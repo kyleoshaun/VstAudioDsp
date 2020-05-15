@@ -52,15 +52,27 @@ namespace SecondOrderBpf {
 SecondOrderBpfProcessor::SecondOrderBpfProcessor ()
 {
 	// Init members
-	inputDelayBuf = 0;
-	outputDelayBuf = 0;
-	mBypass = false;
-	fbFilterCoeffsA = 0;
-	ffFilterCoeffsB = 0;
-	AL = BIQUAD_NO_OF_FB_COEFFS;
-	BL = BIQUAD_NO_OF_FF_COEFFS;
-	cutoffFreq = 0;
-    resonanceQFactor = MIN_RESONANCE_Q_FACTOR;
+  mBypass = false;
+
+  //LPF
+  lpfCutoffFreq = M_PI;
+  lpfResonanceQFactor = MIN_RESONANCE_Q_FACTOR;
+	lpfInputDelayBuf = NULL;
+	lpfOutputDelayBuf = NULL;
+	lpfFbFilterCoeffsA = NULL;
+	lpfFfFilterCoeffsB = NULL;
+	lpfAL = BIQUAD_NO_OF_FB_COEFFS;
+	lpfBL = BIQUAD_NO_OF_FF_COEFFS;
+
+  //HPF
+  hpfCutoffFreq = 0;
+  hpfResonanceQFactor = MIN_RESONANCE_Q_FACTOR;
+  hpfInputDelayBuf = NULL;
+  hpfOutputDelayBuf = NULL;
+  hpfFbFilterCoeffsA = NULL;
+  hpfFfFilterCoeffsB = NULL;
+  hpfAL = BIQUAD_NO_OF_FB_COEFFS;
+  hpfBL = BIQUAD_NO_OF_FF_COEFFS;
 
 	// register its editor class
 	setControllerClass (MyControllerUID);
@@ -111,93 +123,174 @@ tresult PLUGIN_API SecondOrderBpfProcessor::setActive (TBool state)
 	if (getBusArrangement(Vst::kOutput, 0, arr) != kResultTrue)
 		return kResultFalse;
 	int32 numChannels = Vst::SpeakerArr::getChannelCount(arr);
-	//TODO: This should be BIQUAD_NO_OF_FB_COEFFS
-	size_t delayBufSize = processSetup.sampleRate * sizeof(Vst::Sample64) + 0.5; //max 1 sec delay (round up)
+
+  //TODO: This should be size=MAX(AL,BL), currently mac 1sec duration
+	size_t lpfDelayBufSize = processSetup.sampleRate * sizeof(Vst::Sample64) + 0.5;
+  size_t hpfDelayBufSize = processSetup.sampleRate * sizeof(Vst::Sample64) + 0.5;
 
 	if (state) // Initialize
 	{
-		inputDelayBuf  = (double**)std::malloc(sizeof(double*) * numChannels);
-		outputDelayBuf = (double**) std::malloc(sizeof(double*) * numChannels);
+    //Initialize Delay Buffers for LPF and HPF
+    lpfInputDelayBuf  = (double**) std::malloc(sizeof(double*) * numChannels);
+		lpfOutputDelayBuf = (double**) std::malloc(sizeof(double*) * numChannels);
+    hpfInputDelayBuf  = (double**) std::malloc(sizeof(double*) * numChannels);
+    hpfOutputDelayBuf = (double**) std::malloc(sizeof(double*) * numChannels);
 		for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
 		{
-			inputDelayBuf[channelIdx]  = (double*)std::malloc(delayBufSize);
-			outputDelayBuf[channelIdx] = (double*) std::malloc(delayBufSize);
-			memset(outputDelayBuf[channelIdx], 0, delayBufSize);
+			lpfInputDelayBuf[channelIdx]  = (double*) std::malloc(lpfDelayBufSize);
+			lpfOutputDelayBuf[channelIdx] = (double*) std::malloc(lpfDelayBufSize);
+			memset(lpfOutputDelayBuf[channelIdx], 0, lpfDelayBufSize);
+
+      hpfInputDelayBuf[channelIdx]  = (double*) std::malloc(hpfDelayBufSize);
+      hpfOutputDelayBuf[channelIdx] = (double*) std::malloc(hpfDelayBufSize);
+      memset(lpfOutputDelayBuf[channelIdx], 0, hpfDelayBufSize);
 		}
 
-		//Initialize Filter as bypass
-		fbFilterCoeffsA = (double*) std::malloc(sizeof(double) * BL);
-		ffFilterCoeffsB = (double*)std::malloc(sizeof(double) * AL);
-		memset(fbFilterCoeffsA, 0, sizeof(double) * BL);
-		memset(ffFilterCoeffsB, 0, sizeof(double) * AL);
-		ffFilterCoeffsB[0] = 1; //Bypass x[n]
-		fbFilterCoeffsA[0] = 1; // a0 is always 1 in DSP theory
+		//Initialize LPF as bypass
+		lpfFbFilterCoeffsA = (double*) std::malloc(sizeof(double) * lpfBL);
+		lpfFfFilterCoeffsB = (double*) std::malloc(sizeof(double) * lpfAL);
+		memset(lpfFbFilterCoeffsA, 0, sizeof(double) * lpfBL);
+		memset(lpfFfFilterCoeffsB, 0, sizeof(double) * lpfAL);
+		lpfFfFilterCoeffsB[0] = 1; //Bypass x[n]
+		lpfFbFilterCoeffsA[0] = 1; // a0 is always 1 in DSP theory
+
+    //Initialize HPF as bypass
+    hpfFbFilterCoeffsA = (double*) std::malloc(sizeof(double) * hpfBL);
+    hpfFfFilterCoeffsB = (double*) std::malloc(sizeof(double) * hpfAL);
+    memset(hpfFbFilterCoeffsA, 0, sizeof(double) * hpfBL);
+    memset(hpfFfFilterCoeffsB, 0, sizeof(double) * hpfAL);
+    hpfFfFilterCoeffsB[0] = 1; //Bypass x[n]
+    hpfFbFilterCoeffsA[0] = 1; // a0 is always 1 in DSP theory
 	}
 	else // Release
 	{
-		if (outputDelayBuf)
+    //Free LPF Memory
+		if (lpfOutputDelayBuf)
 		{
 			for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
 			{
-				std::free(outputDelayBuf[channelIdx]);
+				std::free(lpfOutputDelayBuf[channelIdx]);
 			}
-			std::free(outputDelayBuf);
-			outputDelayBuf = 0;
+			std::free(lpfOutputDelayBuf);
+			lpfOutputDelayBuf = NULL;
 		}
-		if (inputDelayBuf)
+		if (lpfInputDelayBuf)
 		{
 			for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
 			{
-				std::free(inputDelayBuf[channelIdx]);
+				std::free(lpfInputDelayBuf[channelIdx]);
 			}
-			std::free(inputDelayBuf);
-			inputDelayBuf = 0;
-		}
-		if (fbFilterCoeffsA)
-		{
-			std::free(fbFilterCoeffsA);
-			fbFilterCoeffsA = 0;
-		}
-		if (ffFilterCoeffsB)
-		{
-			std::free(ffFilterCoeffsB);
-			ffFilterCoeffsB = 0;
+			std::free(lpfInputDelayBuf);
+			lpfInputDelayBuf = NULL;
 		}
 
+		if (lpfFbFilterCoeffsA)
+		{
+			std::free(lpfFbFilterCoeffsA);
+			lpfFbFilterCoeffsA = NULL;
+		}
+		if (lpfFfFilterCoeffsB)
+		{
+			std::free(lpfFfFilterCoeffsB);
+			lpfFfFilterCoeffsB = NULL;
+		}
+
+    //Free HPF Memory
+    if (hpfOutputDelayBuf)
+    {
+      for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
+      {
+        std::free(hpfOutputDelayBuf[channelIdx]);
+      }
+      std::free(hpfOutputDelayBuf);
+      hpfOutputDelayBuf = NULL;
+    }
+    if (hpfInputDelayBuf)
+    {
+      for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
+      {
+        std::free(hpfInputDelayBuf[channelIdx]);
+      }
+      std::free(hpfInputDelayBuf);
+      hpfInputDelayBuf = NULL;
+    }
+
+    if (hpfFbFilterCoeffsA)
+    {
+      std::free(hpfFbFilterCoeffsA);
+      hpfFbFilterCoeffsA = NULL;
+    }
+    if (hpfFfFilterCoeffsB)
+    {
+      std::free(hpfFfFilterCoeffsB);
+      hpfFfFilterCoeffsB = NULL;
+    }
+
 	}
+
 	return AudioEffect::setActive (state);
 }
 
 //-----------------------------------------------------------------------------
 template <typename Sample>
-tresult SecondOrderBpfProcessor::processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels)
+tresult SecondOrderBpfProcessor::processAudio(Sample** in, Sample** out,
+                                              int32 numSamples, int32 numChannels)
 {
-
 	for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
 	{
+    //System input/output buffers
 		Sample* channelInputBuffer  = in[channelIdx];
 		Sample* channelOutputBuffer = out[channelIdx];
-		double* channelinputDelayBuffer  = inputDelayBuf[channelIdx];
-		double* channelOutputDelayBuffer = outputDelayBuf[channelIdx];
+
+		double* lpfChannelInputDelayBuffer  = lpfInputDelayBuf[channelIdx];
+		double* lpfChannelOutputDelayBuffer = lpfOutputDelayBuf[channelIdx];
+    double* hpfChannelInputDelayBuffer  = hpfInputDelayBuf[channelIdx];
+    double* hpfChannelOutputDelayBuffer = hpfOutputDelayBuf[channelIdx];
 		double x_n = 0; // Current Input  Sample
 		double y_n = 0; // Current Output Sample
 
-		//Resonator Implementation (2nd order Feedback IIR Filter)
+		//Filter Implementation
 		for (int sampleIdx = 0; sampleIdx < numSamples; sampleIdx++)
 		{
+      //******************
+      //LPF Implementation
+      //******************
 			x_n = channelInputBuffer[sampleIdx];
 			y_n = 0;
 			
 			//Compute Output sample
-			y_n = ffFilterCoeffsB[0] * x_n + ffFilterCoeffsB[1] * channelinputDelayBuffer[1]  + ffFilterCoeffsB[2] * channelinputDelayBuffer[2] -
-				                             fbFilterCoeffsA[1] * channelOutputDelayBuffer[1] - fbFilterCoeffsA[2] * channelOutputDelayBuffer[2];
+			y_n = lpfFfFilterCoeffsB[0] * x_n +
+              lpfFfFilterCoeffsB[1] * lpfChannelInputDelayBuffer[1] +
+              lpfFfFilterCoeffsB[2] * lpfChannelInputDelayBuffer[2] -
+              lpfFbFilterCoeffsA[1] * lpfChannelOutputDelayBuffer[1] -
+              lpfFbFilterCoeffsA[2] * lpfChannelOutputDelayBuffer[2];
 			
 			//Update Delay Buffers
-			channelinputDelayBuffer[2]  = channelinputDelayBuffer[1];
-			channelinputDelayBuffer[1]  = x_n;
-			channelOutputDelayBuffer[2] = channelOutputDelayBuffer[1];
-			channelOutputDelayBuffer[1] = y_n;
+			lpfChannelInputDelayBuffer[2]  = lpfChannelInputDelayBuffer[1];
+			lpfChannelInputDelayBuffer[1]  = x_n;
+			lpfChannelOutputDelayBuffer[2] = lpfChannelOutputDelayBuffer[1];
+			lpfChannelOutputDelayBuffer[1] = y_n;
 
+      //******************
+      //HPF Implementation
+      //******************
+      x_n = y_n; // Send LPF output to HPF input
+      y_n = 0;
+
+      //Compute Output sample
+      y_n = hpfFfFilterCoeffsB[0] * x_n +
+              hpfFfFilterCoeffsB[1] * hpfChannelInputDelayBuffer[1] +
+              hpfFfFilterCoeffsB[2] * hpfChannelInputDelayBuffer[2] -
+              hpfFbFilterCoeffsA[1] * hpfChannelOutputDelayBuffer[1] -
+              hpfFbFilterCoeffsA[2] * hpfChannelOutputDelayBuffer[2];
+
+      //Update Delay Buffers
+      hpfChannelInputDelayBuffer[2]  = hpfChannelInputDelayBuffer[1];
+      hpfChannelInputDelayBuffer[1]  = x_n;
+      hpfChannelOutputDelayBuffer[2] = hpfChannelOutputDelayBuffer[1];
+      hpfChannelOutputDelayBuffer[1] = y_n;
+
+      //Send output sample of system to output buffer
 			channelOutputBuffer[sampleIdx] = y_n;
 		}
 	}
@@ -216,24 +309,39 @@ tresult PLUGIN_API SecondOrderBpfProcessor::process (Vst::ProcessData& data)
 		for (int32 index = 0; index < numParamsChanged; index++)
 		{
 			Vst::IParamValueQueue* paramQueue =
-			    data.inputParameterChanges->getParameterData (index);
+        data.inputParameterChanges->getParameterData (index);
 			if (paramQueue)
 			{
 				Vst::ParamValue value;
 				int32 sampleOffset;
 				int32 numPoints = paramQueue->getPointCount ();
+
 				switch (paramQueue->getParameterId ())
 				{
-					case SecondOrderBpfParams::kCutoffFreq: //resonatorFreq
+					case SecondOrderBpfParams::kLpfCutoffFreq:
 						if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
-							kResultTrue)
-							cutoffFreq = 0.01 * pow(2.0, 8.295 * value); // Convert linear 0-1 input to exponential (base 2) 0.01-PI cutoff
+							  kResultTrue)
+              // Convert linear 0-1 input to exponential (base 2) 0.01-PI cutoff
+							lpfCutoffFreq = 0.01 * pow(2.0, 8.295 * value);
 						break;
-					case SecondOrderBpfParams::kResonanceQ://resonatorQ
+					case SecondOrderBpfParams::kLpfResonanceQ://resonatorQ
 						if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
-							kResultTrue)
-							resonanceQFactor = MIN_RESONANCE_Q_FACTOR + value * (MAX_RESONANCE_Q_FACTOR - MIN_RESONANCE_Q_FACTOR);
+							  kResultTrue)
+							lpfResonanceQFactor =MIN_RESONANCE_Q_FACTOR +
+                value * (MAX_RESONANCE_Q_FACTOR - MIN_RESONANCE_Q_FACTOR);
 						break;
+          case SecondOrderBpfParams::kHpfCutoffFreq:
+            if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
+                kResultTrue)
+              // Convert linear 0-1 input to exponential (base 2) 0.01-PI cutoff
+              hpfCutoffFreq = 0.01 * pow(2.0, 8.295 * value);
+            break;
+          case SecondOrderBpfParams::kHpfResonanceQ://resonatorQ
+            if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
+                kResultTrue)
+              hpfResonanceQFactor = MIN_RESONANCE_Q_FACTOR +
+                value * (MAX_RESONANCE_Q_FACTOR - MIN_RESONANCE_Q_FACTOR);
+            break;
 					case SecondOrderBpfParams::kBypassId:
 						if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) ==
 						    kResultTrue)
@@ -243,18 +351,33 @@ tresult PLUGIN_API SecondOrderBpfProcessor::process (Vst::ProcessData& data)
 			}
 		}
 
-		//Coefficient parameter calculation
-		double beta = 0.5 * (1.0 - sin(cutoffFreq) / (2.0 * resonanceQFactor)) / (1.0 + sin(cutoffFreq) / (2.0 * resonanceQFactor));
-		double gamma = (0.5 + beta) * cos(cutoffFreq);
+		//LPF Coefficient parameter calculation
+		double beta = 0.5 * (1.0 - sin(lpfCutoffFreq) / (2.0 * lpfResonanceQFactor)) /
+                    (1.0 + sin(lpfCutoffFreq) / (2.0 * lpfResonanceQFactor));
+		double gamma = (0.5 + beta) * cos(lpfCutoffFreq);
 
 		//Feedback Coefficients (A)
-		fbFilterCoeffsA[1] = -2.0 * gamma;
-		fbFilterCoeffsA[2] = 2.0 * beta;
+		lpfFbFilterCoeffsA[1] = -2.0 * gamma;
+		lpfFbFilterCoeffsA[2] = 2.0 * beta;
 
 		//Feed-forward Coefficients (B)
-		ffFilterCoeffsB[0] = (0.5 + beta - gamma) / 2.0;
-		ffFilterCoeffsB[1] = 0.5 + beta - gamma;
-		ffFilterCoeffsB[2] = ffFilterCoeffsB[0];
+		lpfFfFilterCoeffsB[0] = (0.5 + beta - gamma) / 2.0;
+		lpfFfFilterCoeffsB[1] = 0.5 + beta - gamma;
+		lpfFfFilterCoeffsB[2] = lpfFfFilterCoeffsB[0];
+
+    //HPF Coefficient parameter calculation
+    beta = 0.5 * (1.0 - sin(hpfCutoffFreq) / (2.0 * hpfResonanceQFactor)) /
+             (1.0 + sin(hpfCutoffFreq) / (2.0 * hpfResonanceQFactor));
+    gamma = (0.5 + beta) * cos(hpfCutoffFreq);
+
+    //Feedback Coefficients (A)
+    hpfFbFilterCoeffsA[1] = -2.0 * gamma;
+    hpfFbFilterCoeffsA[2] = 2.0 * beta;
+
+    //Feed-forward Coefficients (B)
+    hpfFfFilterCoeffsB[0] = (0.5 + beta + gamma) / 2.0;
+    hpfFfFilterCoeffsB[1] = -1.0 * (0.5 + beta + gamma);
+    hpfFfFilterCoeffsB[2] = hpfFfFilterCoeffsB[0];
 
 	}
 
@@ -274,11 +397,13 @@ tresult PLUGIN_API SecondOrderBpfProcessor::process (Vst::ProcessData& data)
 
 		if (Vst::kSample32 == processSetup.symbolicSampleSize)
 		{
-			processAudio<Vst::Sample32>((Vst::Sample32**)in, (Vst::Sample32**)out, data.numSamples, data.inputs[0].numChannels);
+			processAudio<Vst::Sample32>((Vst::Sample32**)in, (Vst::Sample32**)out,
+                                  data.numSamples, data.inputs[0].numChannels);
 		}
 		else
 		{
-			processAudio<Vst::Sample64>((Vst::Sample64**)in, (Vst::Sample64**)out, data.numSamples, data.inputs[0].numChannels);
+			processAudio<Vst::Sample64>((Vst::Sample64**)in, (Vst::Sample64**)out,
+                                  data.numSamples, data.inputs[0].numChannels);
 		}
 	}
 	return kResultOk;

@@ -75,15 +75,27 @@ protected:
 	template <typename Sample>
 	tresult processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels);
 
-	double** inputDelayBuf; // [channel][sample]
-	double** outputDelayBuf;
-	bool mBypass;
-	double* fbFilterCoeffsA;
-	double* ffFilterCoeffsB;
-	int32 BL;
-	int32 AL;
-	double cutoffFreq;
-	double resonanceQFactor;
+  bool mBypass;
+
+  //Low-Pass Filter (LPF)
+  double lpfCutoffFreq;
+  double lpfResonanceQFactor;
+	double* lpfFbFilterCoeffsA;
+	double* lpfFfFilterCoeffsB;
+	int32 lpfBL;
+	int32 lpfAL;
+  double** lpfInputDelayBuf; // [channel][sample]
+  double** lpfOutputDelayBuf;
+
+  //High-Pass Filter (HPF)
+  double hpfCutoffFreq;
+  double hpfResonanceQFactor;
+  double* hpfFbFilterCoeffsA;
+  double* hpfFfFilterCoeffsB;
+  int32 hpfBL;
+  int32 hpfAL;
+  double** hpfInputDelayBuf; // [channel][sample]
+  double** hpfOutputDelayBuf;
 };
 
 //------------------------------------------------------------------------
