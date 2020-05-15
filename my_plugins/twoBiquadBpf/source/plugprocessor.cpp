@@ -46,10 +46,10 @@
 #include "public.sdk/source/vst/vstaudioprocessoralgo.h"
 
 namespace Steinberg {
-namespace SecondOrderBpf {
+namespace TwoBiquadBpf {
 
 //-----------------------------------------------------------------------------
-SecondOrderBpfProcessor::SecondOrderBpfProcessor ()
+TwoBiquadBpfProcessor::TwoBiquadBpfProcessor ()
 {
 	// Init members
   mBypass = false;
@@ -79,7 +79,7 @@ SecondOrderBpfProcessor::SecondOrderBpfProcessor ()
 }
 
 //-----------------------------------------------------------------------------
-tresult PLUGIN_API SecondOrderBpfProcessor::initialize (FUnknown* context)
+tresult PLUGIN_API TwoBiquadBpfProcessor::initialize (FUnknown* context)
 {
 	//---always initialize the parent-------
 	tresult result = AudioEffect::initialize (context);
@@ -95,7 +95,7 @@ tresult PLUGIN_API SecondOrderBpfProcessor::initialize (FUnknown* context)
 }
 
 //-----------------------------------------------------------------------------
-tresult PLUGIN_API SecondOrderBpfProcessor::setBusArrangements (Vst::SpeakerArrangement* inputs,
+tresult PLUGIN_API TwoBiquadBpfProcessor::setBusArrangements (Vst::SpeakerArrangement* inputs,
                                                             int32 numIns,
                                                             Vst::SpeakerArrangement* outputs,
                                                             int32 numOuts)
@@ -109,7 +109,7 @@ tresult PLUGIN_API SecondOrderBpfProcessor::setBusArrangements (Vst::SpeakerArra
 }
 
 //-----------------------------------------------------------------------------
-tresult PLUGIN_API SecondOrderBpfProcessor::setupProcessing (Vst::ProcessSetup& setup)
+tresult PLUGIN_API TwoBiquadBpfProcessor::setupProcessing (Vst::ProcessSetup& setup)
 {
 	// here you get, with setup, information about:
 	// sampleRate, processMode, maximum number of samples per audio block
@@ -117,7 +117,7 @@ tresult PLUGIN_API SecondOrderBpfProcessor::setupProcessing (Vst::ProcessSetup& 
 }
 
 //-----------------------------------------------------------------------------
-tresult PLUGIN_API SecondOrderBpfProcessor::setActive (TBool state)
+tresult PLUGIN_API TwoBiquadBpfProcessor::setActive (TBool state)
 {
 	Vst::SpeakerArrangement arr;
 	if (getBusArrangement(Vst::kOutput, 0, arr) != kResultTrue)
@@ -233,7 +233,7 @@ tresult PLUGIN_API SecondOrderBpfProcessor::setActive (TBool state)
 
 //-----------------------------------------------------------------------------
 template <typename Sample>
-tresult SecondOrderBpfProcessor::processAudio(Sample** in, Sample** out,
+tresult TwoBiquadBpfProcessor::processAudio(Sample** in, Sample** out,
                                               int32 numSamples, int32 numChannels)
 {
 	for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
@@ -300,7 +300,7 @@ tresult SecondOrderBpfProcessor::processAudio(Sample** in, Sample** out,
 
 
 //-----------------------------------------------------------------------------
-tresult PLUGIN_API SecondOrderBpfProcessor::process (Vst::ProcessData& data)
+tresult PLUGIN_API TwoBiquadBpfProcessor::process (Vst::ProcessData& data)
 {
 	//--- Read inputs parameter changes-----------
 	if (data.inputParameterChanges)
@@ -318,31 +318,31 @@ tresult PLUGIN_API SecondOrderBpfProcessor::process (Vst::ProcessData& data)
 
 				switch (paramQueue->getParameterId ())
 				{
-					case SecondOrderBpfParams::kLpfCutoffFreq:
+					case TwoBiquadBpfParams::kLpfCutoffFreq:
 						if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
 							  kResultTrue)
               // Convert linear 0-1 input to exponential (base 2) 0.01-PI cutoff
 							lpfCutoffFreq = 0.01 * pow(2.0, 8.295 * value);
 						break;
-					case SecondOrderBpfParams::kLpfResonanceQ://resonatorQ
+					case TwoBiquadBpfParams::kLpfResonanceQ://resonatorQ
 						if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
 							  kResultTrue)
 							lpfResonanceQFactor =MIN_RESONANCE_Q_FACTOR +
                 value * (MAX_RESONANCE_Q_FACTOR - MIN_RESONANCE_Q_FACTOR);
 						break;
-          case SecondOrderBpfParams::kHpfCutoffFreq:
+          case TwoBiquadBpfParams::kHpfCutoffFreq:
             if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
                 kResultTrue)
               // Convert linear 0-1 input to exponential (base 2) 0.01-PI cutoff
               hpfCutoffFreq = 0.01 * pow(2.0, 8.295 * value);
             break;
-          case SecondOrderBpfParams::kHpfResonanceQ://resonatorQ
+          case TwoBiquadBpfParams::kHpfResonanceQ://resonatorQ
             if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) ==
                 kResultTrue)
               hpfResonanceQFactor = MIN_RESONANCE_Q_FACTOR +
                 value * (MAX_RESONANCE_Q_FACTOR - MIN_RESONANCE_Q_FACTOR);
             break;
-					case SecondOrderBpfParams::kBypassId:
+					case TwoBiquadBpfParams::kBypassId:
 						if (paramQueue->getPoint (numPoints - 1, sampleOffset, value) ==
 						    kResultTrue)
 							mBypass = (value > 0.5f);
@@ -410,7 +410,7 @@ tresult PLUGIN_API SecondOrderBpfProcessor::process (Vst::ProcessData& data)
 }
 
 //------------------------------------------------------------------------
-tresult PLUGIN_API SecondOrderBpfProcessor::setState (IBStream* state)
+tresult PLUGIN_API TwoBiquadBpfProcessor::setState (IBStream* state)
 {
 	if (!state)
 		return kResultFalse;
@@ -437,7 +437,7 @@ tresult PLUGIN_API SecondOrderBpfProcessor::setState (IBStream* state)
 }
 
 //------------------------------------------------------------------------
-tresult PLUGIN_API SecondOrderBpfProcessor::getState (IBStream* state)
+tresult PLUGIN_API TwoBiquadBpfProcessor::getState (IBStream* state)
 {
 	// here we need to save the model (preset or project)
 

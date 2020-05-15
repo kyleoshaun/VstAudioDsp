@@ -39,10 +39,10 @@
 #include "public.sdk/source/vst/vsteditcontroller.h"
 
 namespace Steinberg {
-namespace SecondOrderBpf {
+namespace TwoBiquadBpf {
 
 //-----------------------------------------------------------------------------
-class SecondOrderBpfController : public Vst::EditController
+class TwoBiquadBpfController : public Vst::EditController
 {
 public:
 //------------------------------------------------------------------------
@@ -51,7 +51,7 @@ public:
 //------------------------------------------------------------------------
 	static FUnknown* createInstance (void*)
 	{
-		return (Vst::IEditController*)new SecondOrderBpfController ();
+		return (Vst::IEditController*)new TwoBiquadBpfController ();
 	}
 
 	//---from IPluginBase--------

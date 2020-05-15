@@ -45,7 +45,7 @@
 
 BEGIN_FACTORY_DEF (stringCompanyName, stringCompanyWeb,	stringCompanyEmail)
 
-	DEF_CLASS2 (INLINE_UID_FROM_FUID(Steinberg::SecondOrderBpf::MyProcessorUID),
+	DEF_CLASS2 (INLINE_UID_FROM_FUID(Steinberg::TwoBiquadBpf::MyProcessorUID),
 				PClassInfo::kManyInstances,	// cardinality  
 				kVstAudioEffectClass,	// the component category (do not changed this)
 				stringPluginName,		// here the Plug-in name (to be changed)
@@ -53,9 +53,9 @@ BEGIN_FACTORY_DEF (stringCompanyName, stringCompanyWeb,	stringCompanyEmail)
 				stringSubCategory,		// Subcategory for this Plug-in (to be changed)
 				FULL_VERSION_STR,		// Plug-in version (to be changed)
 				kVstVersionString,		// the VST 3 SDK version (do not changed this, use always this define)
-				Steinberg::SecondOrderBpf::SecondOrderBpfProcessor::createInstance)	// function pointer called when this component should be instantiated
+				Steinberg::TwoBiquadBpf::TwoBiquadBpfProcessor::createInstance)	// function pointer called when this component should be instantiated
 
-	DEF_CLASS2 (INLINE_UID_FROM_FUID(Steinberg::SecondOrderBpf::MyControllerUID),
+	DEF_CLASS2 (INLINE_UID_FROM_FUID(Steinberg::TwoBiquadBpf::MyControllerUID),
 				PClassInfo::kManyInstances,  // cardinality   
 				kVstComponentControllerClass,// the Controller category (do not changed this)
 				stringPluginName "Controller",	// controller name (could be the same than component name)
@@ -63,7 +63,7 @@ BEGIN_FACTORY_DEF (stringCompanyName, stringCompanyWeb,	stringCompanyEmail)
 				"",						// not used here
 				FULL_VERSION_STR,		// Plug-in version (to be changed)
 				kVstVersionString,		// the VST 3 SDK version (do not changed this, use always this define)
-				Steinberg::SecondOrderBpf::SecondOrderBpfController::createInstance)// function pointer called when this component should be instantiated
+				Steinberg::TwoBiquadBpf::TwoBiquadBpfController::createInstance)// function pointer called when this component should be instantiated
 
 END_FACTORY
 

@@ -10,7 +10,7 @@ set(plug_sources
 )
 
 #--- HERE change the target Name for your plug-in (for ex. set(target myDelay))-------
-set(target secondOrderBpf)
+set(target twoBiquadBpf)
 
 smtg_add_vst3plugin(${target} ${plug_sources})
 set_target_properties(${target} PROPERTIES ${SDK_IDE_MYPLUGINS_FOLDER})

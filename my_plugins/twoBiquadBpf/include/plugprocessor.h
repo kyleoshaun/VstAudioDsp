@@ -2,7 +2,7 @@
 // Project     : VST SDK
 //
 // Category    : Examples
-// Filename    : plugcontroller.cpp
+// Filename    : plugprocessor.h
 // Created by  : Steinberg, 01/2018
 // Description : HelloWorld Example for VST 3
 //
@@ -34,78 +34,69 @@
 // OF THE POSSIBILITY OF SUCH DAMAGE.
 //-----------------------------------------------------------------------------
 
-#include "../include/plugcontroller.h"
-#include "../include/plugids.h"
+#pragma once
 
-#include "base/source/fstreamer.h"
-#include "pluginterfaces/base/ibstream.h"
+#include "public.sdk/source/vst/vstaudioeffect.h"
+
 
 namespace Steinberg {
-namespace SecondOrderBpf {
+namespace TwoBiquadBpf {
+
+#define _USE_MATH_DEFINES
+#define BIQUAD_NO_OF_FB_COEFFS 3
+#define BIQUAD_NO_OF_FF_COEFFS 3
+#define MIN_RESONANCE_Q_FACTOR 0.707
+#define MAX_RESONANCE_Q_FACTOR 40.0
 
 //-----------------------------------------------------------------------------
-tresult PLUGIN_API SecondOrderBpfController::initialize (FUnknown* context)
+class TwoBiquadBpfProcessor : public Vst::AudioEffect
 {
-	tresult result = EditController::initialize (context);
-	if (result == kResultTrue)
-	{
-		//---Create Parameters------------
-		parameters.addParameter(
-      STR16 ("Bypass"), 0, 1, 0,
-		  Vst::ParameterInfo::kCanAutomate | Vst::ParameterInfo::kIsBypass,
-		  SecondOrderBpfParams::kBypassId);
+public:
+	TwoBiquadBpfProcessor ();
 
-		parameters.addParameter(
-      STR16 ("LPF Cutoff"), STR16 ("F / Fs/2"), 0, 1,
-      Vst::ParameterInfo::kCanAutomate, SecondOrderBpfParams::kLpfCutoffFreq, 0,
-      STR16 ("Param1"));
+	tresult PLUGIN_API initialize (FUnknown* context) SMTG_OVERRIDE;
+	tresult PLUGIN_API setBusArrangements (Vst::SpeakerArrangement* inputs, int32 numIns,
+	                                       Vst::SpeakerArrangement* outputs, int32 numOuts) SMTG_OVERRIDE;
 
-		parameters.addParameter(
-      STR16 ("LPF Resonance"), STR16 (""), 0, 0,
-      Vst::ParameterInfo::kCanAutomate, SecondOrderBpfParams::kLpfResonanceQ, 0,
-      STR16 ("Param2"));
-
-    parameters.addParameter(
-      STR16 ("HPF Cutoff"), STR16 ("F / Fs/2"), 0, 0,
-      Vst::ParameterInfo::kCanAutomate, SecondOrderBpfParams::kHpfCutoffFreq, 0,
-      STR16 ("Param1"));
-
-    parameters.addParameter(
-      STR16 ("HPF Resonance"), STR16 (""), 0, 0,
-      Vst::ParameterInfo::kCanAutomate, SecondOrderBpfParams::kHpfResonanceQ, 0,
-      STR16 ("Param2"));
-	}
-	return kResultTrue;
-}
+	tresult PLUGIN_API setupProcessing (Vst::ProcessSetup& setup) SMTG_OVERRIDE;
+	tresult PLUGIN_API setActive (TBool state) SMTG_OVERRIDE;
+	tresult PLUGIN_API process (Vst::ProcessData& data) SMTG_OVERRIDE;
 
 //------------------------------------------------------------------------
-tresult PLUGIN_API SecondOrderBpfController::setComponentState (IBStream* state)
-{
-	// we receive the current state of the component (processor part)
-	// we read our parameters and bypass value...
-	if (!state)
-		return kResultFalse;
+	tresult PLUGIN_API setState (IBStream* state) SMTG_OVERRIDE;
+	tresult PLUGIN_API getState (IBStream* state) SMTG_OVERRIDE;
 
-	IBStreamer streamer (state, kLittleEndian);
+	static FUnknown* createInstance (void*)
+	{
+		return (Vst::IAudioProcessor*)new TwoBiquadBpfProcessor ();
+	}
 
-	float savedParam1 = 0.f;
-	if (streamer.readFloat (savedParam1) == false)
-		return kResultFalse;
-	setParamNormalized (SecondOrderBpfParams::kLpfCutoffFreq, savedParam1);
+protected:
+	template <typename Sample>
+	tresult processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels);
 
-	int8 savedParam2 = 0;
-	if (streamer.readInt8 (savedParam2) == false)
-		return kResultFalse;
-	setParamNormalized (SecondOrderBpfParams::kLpfResonanceQ, savedParam2);
+  bool mBypass;
 
-	// read the bypass
-	int32 bypassState;
-	if (streamer.readInt32 (bypassState) == false)
-		return kResultFalse;
-	setParamNormalized (kBypassId, bypassState ? 1 : 0);
+  //Low-Pass Filter (LPF)
+  double lpfCutoffFreq;
+  double lpfResonanceQFactor;
+	double* lpfFbFilterCoeffsA;
+	double* lpfFfFilterCoeffsB;
+	int32 lpfBL;
+	int32 lpfAL;
+  double** lpfInputDelayBuf; // [channel][sample]
+  double** lpfOutputDelayBuf;
 
-	return kResultOk;
-}
+  //High-Pass Filter (HPF)
+  double hpfCutoffFreq;
+  double hpfResonanceQFactor;
+  double* hpfFbFilterCoeffsA;
+  double* hpfFfFilterCoeffsB;
+  int32 hpfBL;
+  int32 hpfAL;
+  double** hpfInputDelayBuf; // [channel][sample]
+  double** hpfOutputDelayBuf;
+};
 
 //------------------------------------------------------------------------
 } // namespace

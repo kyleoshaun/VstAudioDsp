@@ -2,7 +2,7 @@
 // Project     : VST SDK
 //
 // Category    : Examples
-// Filename    : plugids.h
+// Filename    : helloworld/include/version.h
 // Created by  : Steinberg, 01/2018
 // Description : HelloWorld Example for VST 3
 //
@@ -36,27 +36,38 @@
 
 #pragma once
 
-namespace Steinberg {
-namespace SecondOrderBpf {
+#include "pluginterfaces/base/fplatform.h"
 
-// HERE are defined the parameter Ids which are exported to the host
-enum SecondOrderBpfParams : Vst::ParamID
-{
-	kBypassId = 100,
+#define MAJOR_VERSION_STR "1"
+#define MAJOR_VERSION_INT 1
 
-	kLpfCutoffFreq = 102,
-	kLpfResonanceQ = 1000,
+#define SUB_VERSION_STR "0"
+#define SUB_VERSION_INT 0
 
-  kHpfCutoffFreq = 103,
-  kHpfResonanceQ = 1001
-};
+#define RELEASE_NUMBER_STR "0"
+#define RELEASE_NUMBER_INT 0
 
+#define BUILD_NUMBER_STR "1" // Build number to be sure that each result could identified.
+#define BUILD_NUMBER_INT 1
 
-// HERE you have to define new unique class ids: for processor and for controller
-// you can use GUID creator tools like https://www.guidgenerator.com/
-static const FUID MyProcessorUID (0xF7FEE2CD, 0xCD104E1C, 0x8C7ECC98, 0xDB14A870);
-static const FUID MyControllerUID (0x19A791B0, 0xC9FC4C8D, 0xA7F090C5, 0xE1B99D2C);
+// Version with build number (example "1.0.3.342")
+#define FULL_VERSION_STR MAJOR_VERSION_STR "." SUB_VERSION_STR "." RELEASE_NUMBER_STR "." BUILD_NUMBER_STR
 
-//------------------------------------------------------------------------
-} // namespace FilterDemo
-} // namespace Steinberg
+// Version without build number (example "1.0.3")
+#define VERSION_STR MAJOR_VERSION_STR "." SUB_VERSION_STR "." RELEASE_NUMBER_STR
+
+// HERE you have to define your plug-in, company name, email and web
+#define stringPluginName		"2-Biquad BPF"
+
+#define stringOriginalFilename	"twoBiquadBpf.vst3"
+#if SMTG_PLATFORM_64
+#define stringFileDescription	stringPluginName" VST3-SDK (64Bit)"
+#else
+#define stringFileDescription	stringPluginName" VST3-SDK"
+#endif
+#define stringCompanyName		"Kyleoshaun Projects\0"
+#define stringCompanyWeb		"https://github.com/kyleoshaun"
+#define stringCompanyEmail		"mailto:kj.oshaughnessy@gmail.com"
+
+#define stringLegalCopyright	"� 2019 Steinberg Media Technologies"
+#define stringLegalTrademarks	"VST is a trademark of Steinberg Media Technologies GmbH"
