@@ -232,9 +232,45 @@ tresult PLUGIN_API TwoBiquadBpfProcessor::setActive (TBool state)
 }
 
 //-----------------------------------------------------------------------------
+tresult TwoBiquadBpfProcessor::configureFilterCoeffs(
+  double lpfCutoff, double lpfResonanceQ,
+  double hpfCutoff, double hpfResonanceQ)
+{
+  //LPF COEFFICIENT PARAMETER CALCULATION
+  double beta = 0.5 * (1.0 - sin(lpfCutoff) / (2.0 * lpfResonanceQ)) /
+                  (1.0 + sin(lpfCutoff) / (2.0 * lpfResonanceQ));
+  double gamma = (0.5 + beta) * cos(lpfCutoff);
+
+  //Feedback Coefficients (A)
+  lpfFbFilterCoeffsA[1] = -2.0 * gamma;
+  lpfFbFilterCoeffsA[2] = 2.0 * beta;
+
+  //Feed-forward Coefficients (B)
+  lpfFfFilterCoeffsB[0] = (0.5 + beta - gamma) / 2.0;
+  lpfFfFilterCoeffsB[1] = 0.5 + beta - gamma;
+  lpfFfFilterCoeffsB[2] = lpfFfFilterCoeffsB[0];
+
+  //HPF COEFFICIENT PARAMETER CALCULATION
+  beta = 0.5 * (1.0 - sin(hpfCutoff) / (2.0 * hpfResonanceQ)) /
+           (1.0 + sin(hpfCutoff) / (2.0 * hpfResonanceQ));
+  gamma = (0.5 + beta) * cos(hpfCutoffFreq);
+
+  //Feedback Coefficients (A)
+  hpfFbFilterCoeffsA[1] = -2.0 * gamma;
+  hpfFbFilterCoeffsA[2] = 2.0 * beta;
+
+  //Feed-forward Coefficients (B)
+  hpfFfFilterCoeffsB[0] = (0.5 + beta + gamma) / 2.0;
+  hpfFfFilterCoeffsB[1] = -1.0 * (0.5 + beta + gamma);
+  hpfFfFilterCoeffsB[2] = hpfFfFilterCoeffsB[0];
+
+  return kResultOk;
+}
+
+//-----------------------------------------------------------------------------
 template <typename Sample>
 tresult TwoBiquadBpfProcessor::processAudio(Sample** in, Sample** out,
-                                              int32 numSamples, int32 numChannels)
+                                            int32 numSamples, int32 numChannels)
 {
 	for (int channelIdx = 0; channelIdx < numChannels; channelIdx++)
 	{
@@ -351,33 +387,8 @@ tresult PLUGIN_API TwoBiquadBpfProcessor::process (Vst::ProcessData& data)
 			}
 		}
 
-		//LPF Coefficient parameter calculation
-		double beta = 0.5 * (1.0 - sin(lpfCutoffFreq) / (2.0 * lpfResonanceQFactor)) /
-                    (1.0 + sin(lpfCutoffFreq) / (2.0 * lpfResonanceQFactor));
-		double gamma = (0.5 + beta) * cos(lpfCutoffFreq);
-
-		//Feedback Coefficients (A)
-		lpfFbFilterCoeffsA[1] = -2.0 * gamma;
-		lpfFbFilterCoeffsA[2] = 2.0 * beta;
-
-		//Feed-forward Coefficients (B)
-		lpfFfFilterCoeffsB[0] = (0.5 + beta - gamma) / 2.0;
-		lpfFfFilterCoeffsB[1] = 0.5 + beta - gamma;
-		lpfFfFilterCoeffsB[2] = lpfFfFilterCoeffsB[0];
-
-    //HPF Coefficient parameter calculation
-    beta = 0.5 * (1.0 - sin(hpfCutoffFreq) / (2.0 * hpfResonanceQFactor)) /
-             (1.0 + sin(hpfCutoffFreq) / (2.0 * hpfResonanceQFactor));
-    gamma = (0.5 + beta) * cos(hpfCutoffFreq);
-
-    //Feedback Coefficients (A)
-    hpfFbFilterCoeffsA[1] = -2.0 * gamma;
-    hpfFbFilterCoeffsA[2] = 2.0 * beta;
-
-    //Feed-forward Coefficients (B)
-    hpfFfFilterCoeffsB[0] = (0.5 + beta + gamma) / 2.0;
-    hpfFfFilterCoeffsB[1] = -1.0 * (0.5 + beta + gamma);
-    hpfFfFilterCoeffsB[2] = hpfFfFilterCoeffsB[0];
+    configureFilterCoeffs(lpfCutoffFreq, lpfResonanceQFactor,
+                          hpfCutoffFreq, hpfResonanceQFactor);
 
 	}
 

@@ -74,7 +74,8 @@ public:
 protected:
 	template <typename Sample>
 	tresult processAudio(Sample** in, Sample** out, int32 numSamples, int32 numChannels);
-
+  tresult configureFilterCoeffs(double lpfCutoff, double lpfResonanceQ,
+                                double hpfCutoff, double hpfResonanceQ);
   bool mBypass;
 
   //Low-Pass Filter (LPF)
